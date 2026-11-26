@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "741cd5eff2ff33c7cd946984dbed1cb4",
+    "content-hash": "9a085221be7dd39fdd1f6668999b1f2e",
     "packages": [
         {
             "name": "brick/date-time",
@@ -980,7 +980,7 @@
         },
         {
             "name": "mollie/php",
-            "version": "dev-main",
+            "version": "v0.1.0-alpha.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mollie/mollie-php-sdk.git",
@@ -1007,7 +1007,6 @@
                 "phpunit/phpunit": "^11.5.50 || ^12.5.8 || >=13.0.0",
                 "roave/security-advisories": "dev-latest"
             },
-            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -1020,10 +1019,10 @@
             ],
             "support": {
                 "issues": "https://github.com/mollie/mollie-php-sdk/issues",
-                "source": "https://github.com/mollie/mollie-php-sdk/tree/main"
+                "source": "https://github.com/mollie/mollie-php-sdk/tree/v0.1.0-alpha.0"
             },
             "time": "2026-11-26T15:27:03+00:00",
-            "published-time": "2026-11-26T15:27:13+00:00"
+            "published-time": "2026-11-26T17:45:04+00:00"
         },
         {
             "name": "phpdocumentor/reflection-common",
@@ -6696,7 +6695,6 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "mollie/php": 20,
         "php-stubs/wordpress-stubs": 0
     },
     "prefer-stable": true,

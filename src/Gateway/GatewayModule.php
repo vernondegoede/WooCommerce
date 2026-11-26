@@ -50,10 +50,7 @@ class GatewayModule implements ServiceModule, ExecutableModule, ExtendingModule
             return $this->gatewayClassnames;
         });
         //filter out old klarna on payments api
-        add_filter('woocommerce_payment_gateways', static function ($gateways) use ($container) {
-            if ($container->get('settings.settings_helper')->isOrderApiSetting()) {
-                return $gateways;
-            }
+        add_filter('woocommerce_payment_gateways', static function ($gateways) {
             if (
                 (is_wc_endpoint_url('wc-api')
                     || (!wp_doing_ajax() && !is_wc_endpoint_url('order-pay'))

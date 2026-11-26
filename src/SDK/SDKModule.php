@@ -9,7 +9,6 @@ namespace Mollie\WooCommerce\SDK;
 use Inpsyde\Modularity\Module\ExecutableModule;
 use Inpsyde\Modularity\Module\ModuleClassNameIdTrait;
 use Inpsyde\Modularity\Module\ServiceModule;
-use Mollie\Api\Resources\Refund;
 use Mollie\WooCommerce\Gateway\AbstractGateway;
 use Mollie\WooCommerce\Log\EventLog;
 use Mollie\WooCommerce\Notice\AdminNotice;

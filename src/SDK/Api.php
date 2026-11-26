@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\SDK;
 
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\MollieApiClient;
+use Mollie\Api\Client;
+use Mollie\Api\Models\Components\Security;
 
 class Api
 {
+    public const DEFAULT_API_ENDPOINT = 'https://api.mollie.com';
+
     /**
-     * @var \Mollie\Api\MollieApiClient|null
+     * @var MollieClient|null
      */
-    protected static ?MollieApiClient $api_client = null;
+    protected static ?MollieClient $api_client = null;
     /**
      * @var string
      */
@@ -32,14 +34,11 @@ class Api
      * @param string $apiKey
      * @param bool $needToUpdateApiKey If the apiKey was updated discard the old instance, and create a new one with the new key.
      *
-     * @return \Mollie\Api\MollieApiClient
+     * @return MollieClient
      * @throws ApiException
      */
     public function getApiClient($apiKey, $needToUpdateApiKey = false)
     {
-
-        global $wp_version;
-
         if (has_filter('mollie_api_key_filter')) {
             $apiKey = apply_filters('mollie_api_key_filter', $apiKey);
         }
@@ -60,14 +59,21 @@ class Api
         }
 
         if (self::$api_client === null || $needToUpdateApiKey) {
-            $client = new MollieApiClient(null, new WordPressHttpAdapterPicker());
-            $client->setApiKey($apiKey);
-            $client->setApiEndpoint($this->getApiEndpoint());
-            $client->addVersionString('WooCommerce/' . get_option('woocommerce_version', 'Unknown'));
-            $client->addVersionString('WooCommerceSubscriptions/' . get_option('woocommerce_subscriptions_active_version', 'Unknown'));
-            $client->addVersionString('MollieWoo/' . $this->pluginVersion);
+            $userAgent = implode(' ', [
+                (new WordPressHttpAdapter())->versionString(),
+                'WooCommerce/' . get_option('woocommerce_version', 'Unknown'),
+                'WooCommerceSubscriptions/' . get_option('woocommerce_subscriptions_active_version', 'Unknown'),
+                'MollieWoo/' . $this->pluginVersion,
+            ]);
 
-            self::$api_client = $client;
+            $sdk = Client::builder()
+                ->setClient(WordPressHttpAdapter::createGuzzleClient())
+                ->setSecurity(new Security(apiKey: $apiKey))
+                ->setServerUrl($this->getApiEndpoint())
+                ->setCustomUserAgent($userAgent)
+                ->build();
+
+            self::$api_client = new MollieClient($sdk);
         }
 
         return self::$api_client;
@@ -79,7 +85,7 @@ class Api
      */
     public function getApiEndpoint()
     {
-        return apply_filters($this->pluginId . '_api_endpoint', \Mollie\Api\MollieApiClient::API_ENDPOINT);
+        return apply_filters($this->pluginId . '_api_endpoint', Client::SERVERS[0]);
     }
 
     public function isMollieOutageException(ApiException $e): bool

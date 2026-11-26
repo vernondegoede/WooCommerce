@@ -3,13 +3,11 @@
 namespace Mollie\WooCommerceTests\Functional\ApplePayButton;
 
 use Mockery;
-use Mollie\Api\Endpoints\OrderEndpoint;
-use Mollie\Api\MollieApiClient;
 use Mollie\WooCommerce\Buttons\ApplePayButton\AppleAjaxRequests;
 use Mollie\WooCommerce\Buttons\ApplePayButton\ApplePayDataObjectHttp;
 use Mollie\WooCommerce\Buttons\ApplePayButton\ResponsesToApple;
-use Mollie\WooCommerce\Gateway\Refund\RefundLineItemsBuilder;
 use Mollie\WooCommerce\Gateway\Surcharge;
+use Mollie\WooCommerce\SDK\MollieClient;
 use Mollie\WooCommerce\Shared\Data;
 use Mollie\WooCommerceTests\Functional\HelperMocks;
 use Mollie\WooCommerceTests\Stubs\postDTOTestsStubs;
@@ -69,7 +67,7 @@ class AjaxRequestsTest extends TestCase
         );
         list($logger, $responsesTemplate) = $this->responsesToApple();
         $apiClientMock = $this->createConfiguredMock(
-            MollieApiClient::class,
+            MollieClient::class,
             []
         );
 
@@ -165,7 +163,7 @@ class AjaxRequestsTest extends TestCase
         );
         list($logger, $responsesTemplate) = $this->responsesToApple();
         $apiClientMock = $this->createConfiguredMock(
-            MollieApiClient::class,
+            MollieClient::class,
             []
         );
 
@@ -258,7 +256,7 @@ class AjaxRequestsTest extends TestCase
         );
         list($logger, $responsesTemplate) = $this->responsesToApple();
         $apiClientMock = $this->createConfiguredMock(
-            MollieApiClient::class,
+            MollieClient::class,
             []
         );
 
@@ -312,7 +310,7 @@ class AjaxRequestsTest extends TestCase
     public function testCreateWcOrderReturnsEarlyOnInvalidNonce()
     {
         list($logger, $responsesTemplate) = $this->responsesToApple();
-        $apiClientMock = $this->createConfiguredMock(MollieApiClient::class, []);
+        $apiClientMock = $this->createConfiguredMock(MollieClient::class, []);
 
         $testee = $this->buildTesteeMock(
             AppleAjaxRequests::class,
@@ -343,7 +341,7 @@ class AjaxRequestsTest extends TestCase
     public function testCreateWcOrderFromCartReturnsEarlyOnInvalidNonce()
     {
         list($logger, $responsesTemplate) = $this->responsesToApple();
-        $apiClientMock = $this->createConfiguredMock(MollieApiClient::class, []);
+        $apiClientMock = $this->createConfiguredMock(MollieClient::class, []);
 
         $testee = $this->buildTesteeMock(
             AppleAjaxRequests::class,
@@ -401,7 +399,7 @@ class AjaxRequestsTest extends TestCase
             ->andReturn('Kosten betaalmethode');
 
         list($logger, $responsesTemplate) = $this->responsesToApple();
-        $apiClientMock = $this->createConfiguredMock(MollieApiClient::class, []);
+        $apiClientMock = $this->createConfiguredMock(MollieClient::class, []);
 
         $testee = $this->buildTesteeMock(
             AppleAjaxRequests::class,
@@ -451,7 +449,7 @@ class AjaxRequestsTest extends TestCase
         $reflection->setValue($dataObject, 'productDetail');
 
         list(, $responsesTemplate) = $this->responsesToApple();
-        $apiClientMock = $this->createConfiguredMock(MollieApiClient::class, []);
+        $apiClientMock = $this->createConfiguredMock(MollieClient::class, []);
         $testee = $this->buildTesteeMock(
             AppleAjaxRequests::class,
             [

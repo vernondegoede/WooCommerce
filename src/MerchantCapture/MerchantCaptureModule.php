@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\MerchantCapture;
 
-use Mollie\Api\Resources\Payment;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\MerchantCapture\Capture\Action\CapturePayment;
 use Mollie\WooCommerce\MerchantCapture\Capture\Action\VoidPayment;
 use Mollie\WooCommerce\MerchantCapture\Capture\Type\ManualCapture;

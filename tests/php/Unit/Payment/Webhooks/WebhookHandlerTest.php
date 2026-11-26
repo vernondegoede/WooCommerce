@@ -6,10 +6,9 @@ namespace Mollie\WooCommerceTests\Unit\Payment\Webhooks;
 
 use Inpsyde\PaymentGateway\PaymentGateway;
 use Mockery;
-use Mollie\WooCommerce\Payment\MollieOrder;
-use Mollie\Api\Resources\Payment;
 use Mollie\WooCommerce\Payment\MolliePayment;
 use Mollie\WooCommerce\Payment\Webhooks\WebhookHandler;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerce\Shared\Data;
 use Mollie\WooCommerceTests\TestCase;
@@ -67,14 +66,13 @@ class WebhookHandlerTest extends TestCase
     /**
      * @return \Mockery\MockInterface
      */
-    private function makeOrderApiPayment(string $id, bool $isAuthorized, bool $isCompleted)
+    private function makeAuthorizedPayment(string $id, bool $isAuthorized)
     {
         $payment = Mockery::mock();
         $payment->shouldReceive('isAuthorized')->andReturn($isAuthorized);
-        $payment->shouldReceive('isCompleted')->andReturn($isCompleted);
         $payment->id     = $id;
         $payment->mode   = 'test';
-        $payment->method = 'klarnapaylater';
+        $payment->method = 'klarna';
 
         return $payment;
     }
@@ -205,19 +203,18 @@ class WebhookHandlerTest extends TestCase
     }
 
     /**
-     * @scenario For an Orders API payment method (e.g. Klarna) that is not yet authorized,
-     *           onWebhookAuthorized() calls $order->payment_complete() exactly once - the
-     *           single remaining site where payment_complete() fires for such orders.
+     * @scenario For an authorized payment that is not yet marked authorized,
+     *           onWebhookAuthorized() calls $order->payment_complete() exactly once.
      * @covers \Mollie\WooCommerce\Payment\Webhooks\WebhookHandler::onWebhookAuthorized
      */
     public function test_on_webhook_authorized_calls_payment_complete_once(): void
     {
         // Arrange
-        $paymentId    = 'ord_AUTH1';
+        $paymentId    = 'tr_AUTH1';
         $orderId      = 15;
         $order        = Mockery::mock(WC_Order::class);
-        $mollieObject = Mockery::mock(MollieOrder::class);
-        $payment      = $this->makeOrderApiPayment($paymentId, true, false);
+        $mollieObject = Mockery::mock(MolliePayment::class);
+        $payment      = $this->makeAuthorizedPayment($paymentId, true);
 
         $order->shouldReceive('get_id')->andReturn($orderId);
         $order->shouldReceive('get_meta')->with('_mollie_authorized')->andReturn('');
@@ -232,138 +229,6 @@ class WebhookHandlerTest extends TestCase
         $order->shouldReceive('payment_complete')->once()->with($paymentId);
 
         $this->sut->onWebhookAuthorized($order, $payment, 'Klarna', $mollieObject);
-
-        // Then — Mockery verifies call-count expectations on tearDown
-    }
-
-    /**
-     * @scenario For an Orders API payment method that was already authorized (and thus already
-     *           had payment_complete() called once), onWebhookCompleted() no longer calls
-     *           $order->payment_complete() a second time and no longer registers the
-     *           woocommerce_valid_order_statuses_for_payment_complete or
-     *           woocommerce_payment_complete_order_status filters used to force it through.
-     * @covers \Mollie\WooCommerce\Payment\Webhooks\WebhookHandler::onWebhookCompleted
-     */
-    public function test_on_webhook_completed_does_not_call_payment_complete_or_register_filters(): void
-    {
-        // Arrange
-        $paymentId    = 'ord_COMPLETE1';
-        $orderId      = 22;
-        $order        = Mockery::mock(WC_Order::class);
-        $mollieObject = Mockery::mock(MollieOrder::class);
-        $payment      = $this->makeOrderApiPayment($paymentId, false, true);
-
-        $order->shouldReceive('get_id')->andReturn($orderId);
-        $order->shouldReceive('get_status')->andReturn('processing');
-        $order->shouldReceive('update_status')->zeroOrMoreTimes();
-        $order->shouldReceive('add_order_note')->zeroOrMoreTimes();
-
-        $mollieObject->shouldReceive('setOrderPaidAndProcessed')->zeroOrMoreTimes();
-        $mollieObject->shouldReceive('unsetCancelledMolliePaymentId')->zeroOrMoreTimes();
-        $mollieObject->shouldReceive('deleteSubscriptionFromPending')->zeroOrMoreTimes();
-
-        expectAdded('woocommerce_valid_order_statuses_for_payment_complete')->never();
-        expectAdded('woocommerce_payment_complete_order_status')->never();
-
-        // When
-        $order->shouldNotReceive('payment_complete');
-
-        $this->sut->onWebhookCompleted($order, $payment, 'Klarna', $mollieObject);
-
-        // Then — Mockery verifies shouldNotReceive/expectAdded expectations on tearDown
-    }
-
-    /**
-     * @scenario When onWebhookCompleted() runs and the order's current status is 'processing',
-     *           the order transitions to 'completed' via $order->update_status().
-     * @covers \Mollie\WooCommerce\Payment\Webhooks\WebhookHandler::onWebhookCompleted
-     */
-    public function test_on_webhook_completed_transitions_processing_order_to_completed(): void
-    {
-        // Arrange
-        $paymentId    = 'ord_COMPLETE2';
-        $orderId      = 23;
-        $order        = Mockery::mock(WC_Order::class);
-        $mollieObject = Mockery::mock(MollieOrder::class);
-        $payment      = $this->makeOrderApiPayment($paymentId, false, true);
-
-        $order->shouldReceive('get_id')->andReturn($orderId);
-        $order->shouldReceive('get_status')->andReturn('processing');
-        $order->shouldReceive('add_order_note')->zeroOrMoreTimes();
-        $order->shouldReceive('payment_complete')->zeroOrMoreTimes();
-
-        $mollieObject->shouldReceive('setOrderPaidAndProcessed')->zeroOrMoreTimes();
-        $mollieObject->shouldReceive('unsetCancelledMolliePaymentId')->zeroOrMoreTimes();
-        $mollieObject->shouldReceive('deleteSubscriptionFromPending')->zeroOrMoreTimes();
-
-        // When
-        $order->shouldReceive('update_status')->once()->with('completed', Mockery::type('string'));
-
-        $this->sut->onWebhookCompleted($order, $payment, 'Klarna', $mollieObject);
-
-        // Then — Mockery verifies call-count expectations on tearDown
-    }
-
-    /**
-     * @scenario The order note documenting Mollie's 'completed' status is still added by
-     *           onWebhookCompleted(), regardless of the mechanism used to change status.
-     * @covers \Mollie\WooCommerce\Payment\Webhooks\WebhookHandler::onWebhookCompleted
-     */
-    public function test_on_webhook_completed_adds_order_note_after_status_change(): void
-    {
-        // Arrange
-        $paymentId    = 'ord_COMPLETE3';
-        $orderId      = 24;
-        $order        = Mockery::mock(WC_Order::class);
-        $mollieObject = Mockery::mock(MollieOrder::class);
-        $payment      = $this->makeOrderApiPayment($paymentId, false, true);
-
-        $order->shouldReceive('get_id')->andReturn($orderId);
-        $order->shouldReceive('get_status')->andReturn('processing');
-        $order->shouldReceive('update_status')->zeroOrMoreTimes();
-        $order->shouldReceive('payment_complete')->zeroOrMoreTimes();
-
-        $mollieObject->shouldReceive('setOrderPaidAndProcessed')->zeroOrMoreTimes();
-        $mollieObject->shouldReceive('unsetCancelledMolliePaymentId')->zeroOrMoreTimes();
-        $mollieObject->shouldReceive('deleteSubscriptionFromPending')->zeroOrMoreTimes();
-
-        // When
-        $order->shouldReceive('add_order_note')
-            ->once()
-            ->with(Mockery::pattern('/Order completed at Mollie/'));
-
-        $this->sut->onWebhookCompleted($order, $payment, 'Klarna', $mollieObject);
-
-        // Then — Mockery verifies call-count expectations on tearDown
-    }
-
-    /**
-     * @scenario mollieObject->setOrderPaidAndProcessed(), unsetCancelledMolliePaymentId(), and
-     *           deleteSubscriptionFromPending() still run after onWebhookCompleted() changes the
-     *           order status, unchanged from current behavior.
-     * @covers \Mollie\WooCommerce\Payment\Webhooks\WebhookHandler::onWebhookCompleted
-     */
-    public function test_on_webhook_completed_runs_mollie_object_bookkeeping_after_status_change(): void
-    {
-        // Arrange
-        $paymentId    = 'ord_COMPLETE4';
-        $orderId      = 25;
-        $order        = Mockery::mock(WC_Order::class);
-        $mollieObject = Mockery::mock(MollieOrder::class);
-        $payment      = $this->makeOrderApiPayment($paymentId, false, true);
-
-        $order->shouldReceive('get_id')->andReturn($orderId);
-        $order->shouldReceive('get_status')->andReturn('processing');
-        $order->shouldReceive('update_status')->zeroOrMoreTimes();
-        $order->shouldReceive('payment_complete')->zeroOrMoreTimes();
-        $order->shouldReceive('add_order_note')->zeroOrMoreTimes();
-
-        // When
-        $mollieObject->shouldReceive('setOrderPaidAndProcessed')->once()->with($order);
-        $mollieObject->shouldReceive('unsetCancelledMolliePaymentId')->once()->with($orderId);
-        $mollieObject->shouldReceive('deleteSubscriptionFromPending')->once()->with($order);
-
-        $this->sut->onWebhookCompleted($order, $payment, 'Klarna', $mollieObject);
 
         // Then — Mockery verifies call-count expectations on tearDown
     }

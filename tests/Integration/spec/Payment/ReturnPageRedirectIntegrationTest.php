@@ -3,7 +3,7 @@
 namespace Mollie\WooCommerceTests\Integration\spec\Payment;
 
 use Mockery;
-use Mollie\Api\Resources\Payment as MollieApiPayment;
+use Mollie\WooCommerce\SDK\Resources\Payment as MollieApiPayment;
 use Mollie\WooCommerceTests\Integration\Common\PaymentFlowTestCase;
 use WC_Order;
 use WC_Payment_Gateways;

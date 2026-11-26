@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Payment;
 
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\Resources\Order;
-use Mollie\Api\Resources\Payment;
 use Mollie\WooCommerce\Payment\Request\RequestFactory;
 use Mollie\WooCommerce\SDK\Api;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerce\Shared\SharedDataDictionary;
 use Psr\Log\LoggerInterface as Logger;
@@ -35,8 +34,6 @@ class MollieObject
     protected static $shop_country;
     /** @var array<string, Payment|null> */
     protected static $paymentObjectCache = [];
-    /** @var array<string, Order|null> */
-    protected static $orderObjectCache = [];
     /**
      * @var Logger
      */
@@ -101,7 +98,7 @@ class MollieObject
      * @param bool   $testMode (default: false)
      * @param bool   $useCache (default: true)
      *
-     * @return Payment|Order|null
+     * @return Payment|null
      */
     public function getPaymentObject($paymentId, $testMode = false, $useCache = true)
     {
@@ -134,37 +131,6 @@ class MollieObject
         }
 
         static::$paymentObjectCache[$payment_id] = $result;
-        return $result;
-    }
-
-    /**
-     * Get Mollie payment from cache or load from Mollie
-     * Skip cache by setting $use_cache to false
-     *
-     * @param string $payment_id
-     * @param bool   $test_mode (default: false)
-     * @param bool   $use_cache (default: true)
-     *
-     * @return Payment|Order|null
-     */
-    public function getPaymentObjectOrder($payment_id, $test_mode = false, $use_cache = true)
-    {
-        // TODO David: Duplicate, send to child class.
-        if ($use_cache && array_key_exists($payment_id, static::$orderObjectCache)) {
-            return static::$orderObjectCache[$payment_id];
-        }
-
-        $result = null;
-        try {
-            // Is test mode enabled?
-            $test_mode = $this->settingsHelper->isTestModeEnabled();
-            $apiKey = $this->settingsHelper->getApiKey();
-            $result = $this->apiHelper->getApiClient($apiKey)->orders->get($payment_id, [ "embed" => "payments" ]);
-        } catch (ApiException $e) {
-            $this->logger->debug(__FUNCTION__ . sprintf(': Could not load order %s (', $payment_id) . ( $test_mode ? 'test' : 'live' ) . "): " . $e->getMessage() . ' (' . get_class($e) . ')');
-        }
-
-        static::$orderObjectCache[$payment_id] = $result;
         return $result;
     }
 
@@ -428,26 +394,6 @@ class MollieObject
             );
         }
 
-        // If there is no payment ID, try to get order ID and if it's stored, try getting payment ID from API
-        if ($this->hasActiveMollieOrder($order_id)) {
-            $mollie_order = $this->getPaymentObjectOrder($this->getActiveMollieOrderId($order_id));
-
-            try {
-                $mollie_order = $this->paymentFactory->getPaymentObject(
-                    $mollie_order
-                );
-            } catch (ApiException $exception) {
-                $this->logger->debug($exception->getMessage());
-                return null;
-            }
-
-            return $this->getPaymentObjectPayment(
-                $mollie_order->getMolliePaymentIdFromPaymentObject(),
-                $this->getActiveMolliePaymentMode($order_id) === 'test',
-                $use_cache
-            );
-        }
-
         return null;
     }
 
@@ -588,8 +534,8 @@ class MollieObject
     }
 
     /**
-     * @param WC_Order       $order
-     * @param Order| Payment $payment
+     * @param WC_Order $order
+     * @param Payment  $payment
      */
     public function addMandateIdMetaToFirstPaymentSubscriptionOrder(
         WC_Order $order,
@@ -597,8 +543,6 @@ class MollieObject
     ) {
 
         if ($this->dataHelper->isSubscriptionPluginActive()) {
-            //get Payment from orders API
-            $payment = isset($payment->_embedded->payments[0]) ? $payment->_embedded->payments[0] : $payment;
             if (
                 $payment
                 && (isset($payment->sequenceType) && $payment->sequenceType === 'first')
@@ -614,12 +558,8 @@ class MollieObject
                     $subscriptions = wcs_get_subscriptions_for_renewal_order($order);
                 }
                 foreach ($subscriptions as $subscription) {
-                    // phpstan:ignore [mollie-stub] Mollie Payment object exposes id and mandateId as dynamic stdClass properties not covered by type definitions
-                    // @phpstan-ignore-next-line
                     $subscription->update_meta_data('_mollie_payment_id', $payment->id);
                     $subscription->update_meta_data('_mollie_mandate_id', $payment->mandateId);
-                    // phpstan:ignore [mollie-stub] Mollie Payment object exposes method as a dynamic property; also set_payment_method() may not be typed on WC_Subscription stubs
-                    // @phpstan-ignore-next-line
                     $subscription->set_payment_method('mollie_wc_gateway_' . $payment->method);
                     $subscription->save();
                     $subscriptionParentOrder = $subscription->get_parent();
@@ -682,7 +622,7 @@ class MollieObject
      * @param \WC_Order                     $order
      * @param string                        $newOrderStatus
      * @param string                        $paymentMethodTitle
-     * @param Payment|Order                 $payment
+     * @param Payment                       $payment
      */
     public function failedSubscriptionProcess(
         $orderId,

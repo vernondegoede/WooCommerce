@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace Mollie\WooCommerceTests\Functional\Payment;
 
 use Mockery;
-use Mollie\Api\Endpoints\OrderEndpoint;
-use Mollie\Api\Endpoints\PaymentEndpoint;
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\MollieApiClient;
-use Mollie\Api\Resources\Order as MollieApiOrder;
-use Mollie\Api\Resources\Payment as MollieApiPayment;
-use Mollie\WooCommerce\Payment\MollieOrder;
 use Mollie\WooCommerce\Payment\MolliePayment;
 use Mollie\WooCommerce\Payment\PaymentCheckoutRedirectService;
 use Mollie\WooCommerce\Payment\PaymentFactory;
 use Mollie\WooCommerce\Payment\PaymentProcessor;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Endpoints\PaymentsEndpoint;
+use Mollie\WooCommerce\SDK\MollieClient;
+use Mollie\WooCommerce\SDK\Resources\Payment as MollieApiPayment;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerce\Shared\Data;
 use Mollie\WooCommerceTests\Functional\HelperMocks;
@@ -29,9 +26,7 @@ use ReflectionMethod;
 class PaymentProcessorTest extends TestCase
 {
     private HelperMocks $helperMocks;
-    private MollieApiClient $apiClientMock;
-    /** @var Mockery\MockInterface */
-    private $orderEndpointMock;
+    private MollieClient $apiClientMock;
     /** @var Mockery\MockInterface */
     private $paymentEndpointMock;
     /** @var Mockery\MockInterface&LoggerInterface */
@@ -42,11 +37,9 @@ class PaymentProcessorTest extends TestCase
         parent::setUp();
         $this->helperMocks = new HelperMocks();
 
-        $this->orderEndpointMock = Mockery::mock(OrderEndpoint::class);
-        $this->paymentEndpointMock = Mockery::mock(PaymentEndpoint::class);
+        $this->paymentEndpointMock = Mockery::mock(PaymentsEndpoint::class);
 
-        $this->apiClientMock = $this->createMock(MollieApiClient::class);
-        $this->apiClientMock->orders = $this->orderEndpointMock;
+        $this->apiClientMock = $this->createMock(MollieClient::class);
         $this->apiClientMock->payments = $this->paymentEndpointMock;
 
         $this->logger = Mockery::mock(LoggerInterface::class);
@@ -124,43 +117,6 @@ class PaymentProcessorTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    // Criterion 1 — ord_ meta, cancellable → cancel endpoint + order note
-    // ──────────────────────────────────────────────────────────────────────
-
-    /**
-     * @test
-     * @scenario A cancellable Mollie order is cancelled before a new payment
-     *   Given an order whose _mollie_order_id points to a cancellable, not-yet-cancelled Mollie order
-     *   When cancelExistingMolliePaymentIfPending() runs
-     *   Then it calls the orders cancel endpoint and adds an order note with the cancelled id
-     */
-    public function test_cancels_mollie_order_when_ord_meta_present_and_cancellable(): void
-    {
-        // Arrange
-        $mollieOrderId = 'ord_abc123';
-
-        $mollieOrder = Mockery::mock(MollieApiOrder::class);
-        $mollieOrder->shouldReceive('isCanceled')->andReturn(false);
-        $mollieOrder->shouldReceive('isCreated')->andReturn(true);
-        $mollieOrder->shouldReceive('cancel')->once();
-
-        $this->orderEndpointMock->shouldReceive('get')->andReturn($mollieOrder);
-
-        $order = $this->wcOrderWithMeta(['_mollie_order_id' => $mollieOrderId]);
-        $order->shouldReceive('add_order_note')
-            ->once()
-            ->withArgs(static function (string $note) use ($mollieOrderId): bool {
-                return strpos($note, $mollieOrderId) !== false;
-            });
-
-        // When
-        $this->invokeCancel($this->buildSut(), $order);
-
-        // Then — Mockery verifies cancel() once and add_order_note() once in tearDown
-        $this->assertTrue(true);
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
     // Criterion 2 — tr_ meta, isCancelable=true → payments cancel + note
     // ──────────────────────────────────────────────────────────────────────
 
@@ -186,7 +142,6 @@ class PaymentProcessorTest extends TestCase
         $this->paymentEndpointMock->shouldReceive('cancel')->once();
 
         $order = $this->wcOrderWithMeta([
-            '_mollie_order_id'  => '',
             '_mollie_payment_id' => $paymentId,
         ]);
         $order->shouldReceive('add_order_note')
@@ -209,22 +164,27 @@ class PaymentProcessorTest extends TestCase
     /**
      * @test
      * @scenario A terminal previous payment is not cancelled
-     *   Given a previous Mollie payment/order already in a terminal state (paid, authorized, canceled, expired, failed)
+     *   Given a previous Mollie payment already in a terminal state (paid, authorized, canceled, expired, failed)
      *   When cancelExistingMolliePaymentIfPending() runs
      *   Then it does not call the cancel endpoint, logs the status at debug, and proceeds to create a new payment
      */
     public function test_skips_cancel_when_previous_payment_in_terminal_state(): void
     {
         // Arrange
-        $mollieOrderId = 'ord_terminal';
+        $paymentId = 'tr_terminal';
 
-        $mollieOrder = Mockery::mock(MollieApiOrder::class);
-        $mollieOrder->shouldReceive('isCanceled')->andReturn(true);
-        $mollieOrder->shouldReceive('cancel')->never();
+        $molliePayment = Mockery::mock(MollieApiPayment::class);
+        $molliePayment->isCancelable = false;
+        $molliePayment->shouldReceive('isCanceled')->andReturn(true);
+        $molliePayment->shouldReceive('isPaid')->andReturn(false);
+        $molliePayment->shouldReceive('isAuthorized')->andReturn(false);
+        $molliePayment->shouldReceive('isExpired')->andReturn(false);
+        $molliePayment->shouldReceive('isFailed')->andReturn(false);
 
-        $this->orderEndpointMock->shouldReceive('get')->andReturn($mollieOrder);
+        $this->paymentEndpointMock->shouldReceive('get')->andReturn($molliePayment);
+        $this->paymentEndpointMock->shouldReceive('cancel')->never();
 
-        $order = $this->wcOrderWithMeta(['_mollie_order_id' => $mollieOrderId]);
+        $order = $this->wcOrderWithMeta(['_mollie_payment_id' => $paymentId]);
         $order->shouldReceive('add_order_note')->never();
 
         $this->logger->shouldReceive('debug')->atLeast()->once()->withAnyArgs();
@@ -250,12 +210,12 @@ class PaymentProcessorTest extends TestCase
     public function test_logs_and_does_not_throw_when_api_exception_during_cancel(): void
     {
         // Arrange
-        $mollieOrderId = 'ord_fail';
+        $paymentId = 'tr_fail';
         $exception = new ApiException('Network error');
 
-        $this->orderEndpointMock->shouldReceive('get')->andThrow($exception);
+        $this->paymentEndpointMock->shouldReceive('get')->andThrow($exception);
 
-        $order = $this->wcOrderWithMeta(['_mollie_order_id' => $mollieOrderId]);
+        $order = $this->wcOrderWithMeta(['_mollie_payment_id' => $paymentId]);
         $order->shouldReceive('add_order_note')->never();
 
         $this->logger->shouldReceive('debug')
@@ -278,19 +238,17 @@ class PaymentProcessorTest extends TestCase
     /**
      * @test
      * @scenario No Mollie meta means no cancel work
-     *   Given an order with no _mollie_order_id and no _mollie_payment_id meta
+     *   Given an order with no _mollie_payment_id meta
      *   When cancelExistingMolliePaymentIfPending() runs
      *   Then it makes no API call, adds no order note, and new-payment creation proceeds normally
      */
     public function test_no_api_call_when_order_has_no_mollie_meta(): void
     {
         // Arrange
-        $this->orderEndpointMock->shouldReceive('get')->never();
         $this->paymentEndpointMock->shouldReceive('get')->never();
         $this->paymentEndpointMock->shouldReceive('cancel')->never();
 
         $order = $this->wcOrderWithMeta([
-            '_mollie_order_id'   => '',
             '_mollie_payment_id' => '',
         ]);
         $order->shouldReceive('add_order_note')->never();
@@ -338,8 +296,6 @@ class PaymentProcessorTest extends TestCase
                 'processInitialOrderStatus',
                 'getUserMollieCustomerId',
                 'needsSubscriptionSwitch',
-                'paymentTypeBasedOnGateway',
-                'paymentTypeBasedOnProducts',
             ])
             ->getMock();
 
@@ -347,8 +303,6 @@ class PaymentProcessorTest extends TestCase
         $sut->method('processInitialOrderStatus')->willReturn('pending');
         $sut->method('getUserMollieCustomerId')->willReturn(null);
         $sut->method('needsSubscriptionSwitch')->willReturn(false);
-        $sut->method('paymentTypeBasedOnGateway')->willReturn(PaymentProcessor::PAYMENT_METHOD_TYPE_ORDER);
-        $sut->method('paymentTypeBasedOnProducts')->willReturn(PaymentProcessor::PAYMENT_METHOD_TYPE_ORDER);
 
         $gateway = $this->helperMocks->genericPaymentGatewayMock();
         $gateway->id = $gatewayId;
@@ -379,7 +333,6 @@ class PaymentProcessorTest extends TestCase
     public function test_subscription_switch_path_does_not_invoke_cancel_logic(): void
     {
         // Arrange — cancel endpoints must never be reached when subscription switch exits early
-        $this->orderEndpointMock->shouldReceive('get')->never();
         $this->paymentEndpointMock->shouldReceive('get')->never();
         $this->paymentEndpointMock->shouldReceive('cancel')->never();
 
@@ -690,9 +643,6 @@ class PaymentProcessorTest extends TestCase
         $paymentObject->shouldReceive('getMollieCustomerIdFromPaymentObject')->andReturn('');
 
         $paymentFactory = new PaymentFactory(
-            static function () {
-                return Mockery::mock(MollieOrder::class);
-            },
             static function () use ($paymentObject) {
                 return $paymentObject;
             }

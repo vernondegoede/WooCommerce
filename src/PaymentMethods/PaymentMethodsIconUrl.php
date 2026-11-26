@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\PaymentMethods;
 
-use Mollie\Api\Types\PaymentMethod;
+use Mollie\Api\Models\Components\MethodEnum;
 use Mollie\WooCommerce\Plugin;
 
 class PaymentMethodsIconUrl
@@ -67,7 +67,7 @@ class PaymentMethodsIconUrl
      */
     public function svgUrlForPaymentMethod(string $paymentMethodName)
     {
-        if ($paymentMethodName === PaymentMethod::CREDITCARD && !is_admin()) {
+        if ($paymentMethodName === MethodEnum::Creditcard->value && !is_admin()) {
             return $this->getCreditcardIcon();
         }
         $svgUrl = $this->pluginUrl . sprintf('public/images/%s', $paymentMethodName) . self::SVG_FILE_EXTENSION;
@@ -88,7 +88,7 @@ class PaymentMethodsIconUrl
             $url =  $gatewaySettings["iconFileUrl"];
             return [esc_url($url)];
         }
-        $svgUrl = $this->pluginUrl . sprintf('public/images/%ss.svg', PaymentMethod::CREDITCARD);
+        $svgUrl = $this->pluginUrl . sprintf('public/images/%ss.svg', MethodEnum::Creditcard->value);
         return [$svgUrl];
     }
 

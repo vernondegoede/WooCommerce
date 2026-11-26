@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Shared;
 
-use Mollie\Api\CompatibilityChecker;
-use Mollie\Api\Exceptions\IncompatiblePlatform;
-use Mollie\Api\MollieApiClient;
+use Mollie\Api\Client;
+use Mollie\WooCommerce\SDK\ApiException;
 use WooCommerce;
 
 class Status
@@ -19,22 +18,21 @@ class Status
     public const MIN_WOOCOMMERCE_VERSION = '3.0';
 
     /**
+     * Minimal required PHP version
+     *
+     * @var string
+     */
+    public const MIN_PHP_VERSION = '8.2';
+
+    /**
      * @var string[]
      */
     protected $errors = [];
 
-    /**
-     * @var CompatibilityChecker
-     */
-    protected $compatibilityChecker;
-    protected $pluginTitle;
+    protected string $pluginTitle;
 
-    public function __construct(
-        CompatibilityChecker $compatibilityChecker,
-        string $pluginTitle
-    ) {
-
-        $this->compatibilityChecker = $compatibilityChecker;
+    public function __construct(string $pluginTitle = '')
+    {
         $this->pluginTitle = $pluginTitle;
     }
 
@@ -93,61 +91,27 @@ class Status
             return $isCompatible = false;
         }
 
-        if (function_exists('extension_loaded') && !extension_loaded('json')) {
-            $this->errors[] = __(
-                'Mollie Payments for WooCommerce requires the JSON extension for PHP. Enable it in your server or ask your webhoster to enable it for you.',
-                'mollie-payments-for-woocommerce'
+        if (version_compare(PHP_VERSION, self::MIN_PHP_VERSION, '<')) {
+            $this->errors[] = sprintf(
+                /* translators: Placeholder 1: Min PHP version. Placeholder 2: PHP version used. Placeholder 3: Opening link tag. placeholder 4: Closing link tag. */
+                __(
+                    'Mollie Payments for WooCommerce require PHP %1$s or higher, you have PHP %2$s. Please upgrade and view %3$sthis FAQ%4$s',
+                    'mollie-payments-for-woocommerce'
+                ),
+                self::MIN_PHP_VERSION,
+                PHP_VERSION,
+                '<a href="https://github.com/mollie/WooCommerce/wiki/PHP-&-Mollie-API-v2" target="_blank">',
+                '</a>'
             );
 
             return $isCompatible = false;
         }
 
-        try {
-            $this->compatibilityChecker->checkCompatibility();
-        } catch (IncompatiblePlatform $incompatiblePlatform) {
-            switch ($incompatiblePlatform->getCode()) {
-                case IncompatiblePlatform::INCOMPATIBLE_PHP_VERSION:
-                    $error = sprintf(
-                    /* translators: Placeholder 1: Min PHP version. Placeholder 2: PHP version used. Placeholder 3: Opening link tag. placeholder 4: Closing link tag. */
-                        __(
-                            'Mollie Payments for WooCommerce require PHP %1$s or higher, you have PHP %2$s. Please upgrade and view %3$sthis FAQ%4$s',
-                            'mollie-payments-for-woocommerce'
-                        ),
-                        CompatibilityChecker::MIN_PHP_VERSION,
-                        PHP_VERSION,
-                        '<a href="https://github.com/mollie/WooCommerce/wiki/PHP-&-Mollie-API-v2" target="_blank">',
-                        '</a>'
-                    );
-                    break;
-
-                case IncompatiblePlatform::INCOMPATIBLE_JSON_EXTENSION:
-                    $error = __(
-                        "Mollie Payments for WooCommerce requires the PHP extension JSON to be enabled. Please enable the 'json' extension in your PHP configuration.",
-                        'mollie-payments-for-woocommerce'
-                    );
-                    break;
-
-                case IncompatiblePlatform::INCOMPATIBLE_CURL_EXTENSION:
-                    $error = __(
-                        "Mollie Payments for WooCommerce requires the PHP extension cURL to be enabled. Please enable the 'curl' extension in your PHP configuration.",
-                        'mollie-payments-for-woocommerce'
-                    );
-                    break;
-
-                case IncompatiblePlatform::INCOMPATIBLE_CURL_FUNCTION:
-                    $error =
-                        __(
-                            'Mollie Payments for WooCommerce require PHP cURL functions to be available. Please make sure all of these functions are available.',
-                            'mollie-payments-for-woocommerce'
-                        );
-                    break;
-
-                default:
-                    $error = $incompatiblePlatform->getMessage();
-                    break;
-            }
-
-            $this->errors[] = $error;
+        if (function_exists('extension_loaded') && !extension_loaded('json')) {
+            $this->errors[] = __(
+                'Mollie Payments for WooCommerce requires the JSON extension for PHP. Enable it in your server or ask your webhoster to enable it for you.',
+                'mollie-payments-for-woocommerce'
+            );
 
             return $isCompatible = false;
         }
@@ -168,7 +132,7 @@ class Status
      */
     public function hasCompatibleWooCommerceVersion()
     {
-        return version_compare($this->getWooCommerceVersion(), self::MIN_WOOCOMMERCE_VERSION, ">=");
+        return version_compare($this->getWooCommerceVersion(), self::MIN_WOOCOMMERCE_VERSION, '>=');
     }
 
     /**
@@ -176,7 +140,7 @@ class Status
      */
     protected function isApiClientInstalled()
     {
-        return class_exists(MollieApiClient::class);
+        return class_exists(Client::class);
     }
 
     /**
@@ -184,32 +148,29 @@ class Status
      * authentication problem from an outage or from a request that never left the server.
      * The message is left unescaped here; escaping belongs to whoever renders it.
      *
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @param \Mollie\WooCommerce\SDK\MollieClient $apiClient
+     * @throws ApiException
      */
     public function getMollieApiStatus($apiClient)
     {
         try {
-            // Try to load Mollie issuers
+            // Try to load Mollie methods
             $apiClient->methods->all();
-        } catch (\Mollie\Api\Exceptions\ApiException $apiException) {
+        } catch (ApiException $apiException) {
             $code = (int) $apiException->getCode();
             // phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- not output; escaped once where rendered
             if ($code === 401) {
-                throw new \Mollie\Api\Exceptions\ApiException(
+                throw new ApiException(
                     __('incorrect API key or other authentication issue. Please check your API keys!', 'mollie-payments-for-woocommerce'),
                     $code,
-                    null,
-                    null,
                     null,
                     $apiException
                 );
             }
 
-            throw new \Mollie\Api\Exceptions\ApiException(
+            throw new ApiException(
                 self::plainApiErrorMessage($apiException),
                 $code,
-                null,
-                null,
                 null,
                 $apiException
             );
@@ -221,9 +182,9 @@ class Status
      * The undecorated failure text, without the ISO-8601 prefix, documentation link and
      * request body that ApiException appends to getMessage().
      */
-    public static function plainApiErrorMessage(\Mollie\Api\Exceptions\ApiException $exception): string
+    public static function plainApiErrorMessage(ApiException $exception): string
     {
-        $plain = method_exists($exception, 'getPlainMessage') ? (string) $exception->getPlainMessage() : '';
+        $plain = $exception->getPlainMessage();
         if ($plain !== '') {
             return $plain;
         }

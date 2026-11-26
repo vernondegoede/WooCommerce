@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\SDK;
 
-use Mollie\Api\Exceptions\ApiException;
-
 /**
- * An error document from Mollie, raised as the SDK's ApiException.
+ * An error document from Mollie, raised as the plugin's ApiException.
  *
  * getMessage() carries the documentation link and the response body, as the plugin's log lines
- * always have. getPlainMessage() carries only the call and Mollie's detail, as it does for the
- * SDK's own exceptions, because that is the part a settings page may show.
+ * always have. getPlainMessage() carries only the call and Mollie's detail, because that is the
+ * part a settings page may show.
  */
 final class MollieErrorResponse extends ApiException
 {
@@ -21,7 +19,6 @@ final class MollieErrorResponse extends ApiException
      */
     public function __construct(string $plainMessage, string $details, int $code, string $field)
     {
-        parent::__construct($plainMessage . $details, $code, $field);
-        $this->plainMessage = $plainMessage;
+        parent::__construct($plainMessage . $details, $code, $field !== '' ? $field : null, null, $plainMessage);
     }
 }

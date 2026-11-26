@@ -6,10 +6,11 @@ namespace Mollie\WooCommerce\Settings;
 
 use DateInterval;
 use DateTime;
-use Mollie\Api\Exceptions\ApiException;
 use Mollie\WooCommerce\Gateway\Surcharge;
 use Mollie\WooCommerce\Notice\AdminNotice;
 use Mollie\WooCommerce\Payment\PaymentProcessor;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Resources\Profile;
 use Mollie\WooCommerce\Settings\General\MollieGeneralSettings;
 use Mollie\WooCommerce\Shared\SharedDataDictionary;
 use Mollie\WooCommerce\Shared\Status;
@@ -66,7 +67,7 @@ class Settings
             $defaultTitle,
             $defaultDescription,
             $paymentConfirmation,
-            $this->isOrderApiSetting()
+            false
         );
     }
 
@@ -159,15 +160,6 @@ class Settings
         return is_string($testModeEnabled) ? trim($testModeEnabled) === 'yes' : false;
     }
 
-    /**
-     * Check if the advanced setting to switch API has value 'Order"
-     * @return bool
-     */
-    public function isOrderApiSetting()
-    {
-        $orderApiSetting = get_option($this->getSettingId('api_switch'), PaymentProcessor::PAYMENT_METHOD_TYPE_PAYMENT);
-        return !$orderApiSetting || is_string($orderApiSetting) && trim($orderApiSetting) === PaymentProcessor::PAYMENT_METHOD_TYPE_ORDER;
-    }
     /**
      * @param bool|null $overrideTestMode Pass null to use the current test mode setting.
      *
@@ -586,7 +578,7 @@ class Settings
      * If we are calling this the api key has been updated, we need a new api object
      * to retrieve a new profile id
      *
-     * @return \Mollie\Api\Resources\CurrentProfile
+     * @return Profile
      * @throws ApiException
      */
     protected function mollieWooCommerceMerchantProfile()

@@ -2,15 +2,14 @@
 
 namespace Mollie\WooCommerceTests\Functional\Subscription;
 
-use Mollie\Api\Endpoints\CustomerEndpoint;
-use Mollie\Api\Endpoints\PaymentEndpoint;
-use Mollie\Api\Resources\Customer;
-use Mollie\Api\Resources\Mandate;
-use Mollie\Api\Resources\MandateCollection;
-use Mollie\Api\Resources\Payment;
 use Mollie\WooCommerce\Payment\MollieObject;
 use Mollie\WooCommerce\Payment\Webhooks\WebhookSecret;
+use Mollie\WooCommerce\SDK\Endpoints\CustomersEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\PaymentsEndpoint;
 use Mollie\WooCommerce\SDK\HttpResponse;
+use Mollie\WooCommerce\SDK\Resources\Customer;
+use Mollie\WooCommerce\SDK\Resources\Mandate;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\Subscription\MollieSubscriptionGatewayHandler;
 use Mollie\WooCommerceTests\Functional\HelperMocks;
 use Mollie\WooCommerceTests\TestCase;
@@ -87,7 +86,7 @@ class MollieSubscriptionTest extends TestCase
             ]
         );
         $apiClientMock->customers = $this->createConfiguredMock(
-            CustomerEndpoint::class,
+            CustomersEndpoint::class,
             [
                 'get'=> $customer
             ]
@@ -97,7 +96,7 @@ class MollieSubscriptionTest extends TestCase
         $paymentResponse->mandateId = 'mandateId';
         $paymentResponse->resource = 'payment';
         $apiClientMock->payments = $this->createConfiguredMock(
-            PaymentEndpoint::class,
+            PaymentsEndpoint::class,
             [
                 'create'=> $paymentResponse
             ]

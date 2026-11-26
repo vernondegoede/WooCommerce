@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerceTests\Integration\spec\ExpressComponent\Harness;
 
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\MollieApiClient;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\MollieClient;
 use Mollie\WooCommerceTests\Integration\Common\Doubles\CanaryData;
 use Mollie\WooCommerceTests\Integration\Common\ExpressFlowTestCase;
 use Mollie\WooCommerceTests\Integration\Common\FakeMollie\FakeMollieApi;
@@ -33,7 +33,7 @@ class ExpressHarnessTest extends ExpressFlowTestCase
     {
         $client = $this->apiClient();
 
-        $session = $client->performHttpCall('POST', 'sessions', (string) wp_json_encode($this->validSessionPayload()));
+        $session = $client->sessions->create($this->validSessionPayload());
 
         $this->assertSame('session', $session->resource);
         $this->assertStringStartsWith('sess_', $session->id);
@@ -62,12 +62,12 @@ class ExpressHarnessTest extends ExpressFlowTestCase
     {
         $this->fakeMollie()->setNow(1790000000);
 
-        $session = $this->apiClient()->performHttpCall('POST', 'sessions', (string) wp_json_encode($this->validSessionPayload()));
+        $session = $this->apiClient()->sessions->create($this->validSessionPayload());
 
         $this->assertSame(gmdate('c', 1790000000), $session->createdAt);
 
         $this->fakeMollie()->expireSession($session->id);
-        $expired = $this->apiClient()->performHttpCall('GET', 'sessions/' . $session->id);
+        $expired = $this->apiClient()->sessions->get($session->id);
 
         $this->assertSame('expired', $expired->status);
         $this->assertSame(gmdate('c', 1790000000 + FakeMollieApi::SESSION_LIFETIME_SECONDS), $expired->expiredAt);
@@ -88,7 +88,7 @@ class ExpressHarnessTest extends ExpressFlowTestCase
         $this->assertSame($expectedField, SessionRules::violations($payload)[0]['field'] ?? null);
 
         try {
-            $this->apiClient()->performHttpCall('POST', 'sessions', (string) wp_json_encode($payload));
+            $this->apiClient()->sessions->create($payload);
             $this->fail('The fake must refuse the payload with a 422.');
         } catch (ApiException $exception) {
             $this->assertSame(422, $exception->getCode());
@@ -163,12 +163,10 @@ class ExpressHarnessTest extends ExpressFlowTestCase
     public function it_replays_a_repeated_idempotency_key(): void
     {
         $client = $this->apiClient();
-        $body = (string) wp_json_encode($this->validSessionPayload());
+        $payload = $this->validSessionPayload();
 
-        $client->setIdempotencyKey('express-session-order-1-attempt-1');
-        $first = $client->performHttpCall('POST', 'sessions', $body);
-        $client->setIdempotencyKey('express-session-order-1-attempt-1');
-        $second = $client->performHttpCall('POST', 'sessions', $body);
+        $first = $client->sessions->create($payload, 'express-session-order-1-attempt-1');
+        $second = $client->sessions->create($payload, 'express-session-order-1-attempt-1');
 
         $this->assertSame($first->id, $second->id);
         $this->assertCount(1, $this->fakeMollie()->sessions());
@@ -193,14 +191,12 @@ class ExpressHarnessTest extends ExpressFlowTestCase
         $changed = $this->validSessionPayload();
         $changed['description'] = 'Order 2';
 
-        $client->setIdempotencyKey('same-key');
-        $client->performHttpCall('POST', 'sessions', (string) wp_json_encode($this->validSessionPayload()));
+        $client->sessions->create($this->validSessionPayload(), 'same-key');
 
         $this->expectException(ApiException::class);
         // 400, as the real API answers it; a payload Mollie refuses is 422 instead.
         $this->expectExceptionCode(400);
-        $client->setIdempotencyKey('same-key');
-        $client->performHttpCall('POST', 'sessions', (string) wp_json_encode($changed));
+        $client->sessions->create($changed, 'same-key');
     }
 
     /**
@@ -214,7 +210,7 @@ class ExpressHarnessTest extends ExpressFlowTestCase
     public function it_creates_a_payment_that_inherits_the_session_metadata(): void
     {
         $client = $this->apiClient();
-        $session = $client->performHttpCall('POST', 'sessions', (string) wp_json_encode($this->validSessionPayload()));
+        $session = $client->sessions->create($this->validSessionPayload());
 
         $created = $this->fakeMollie()->completeSession($session->id, [
             'status' => 'paid',
@@ -233,7 +229,7 @@ class ExpressHarnessTest extends ExpressFlowTestCase
         $this->assertSame('Noord-Holland', $payment->shippingAddress->region);
         $this->assertSame('https://shop.example/wp-json/mollie/v1/webhook', $payment->webhookUrl);
 
-        $this->assertSame('completed', $client->performHttpCall('GET', 'sessions/' . $session->id)->status);
+        $this->assertSame('completed', $client->sessions->get($session->id)->status);
     }
 
     /**
@@ -244,17 +240,17 @@ class ExpressHarnessTest extends ExpressFlowTestCase
     public function it_simulates_a_failure_for_the_next_matching_call_only(): void
     {
         $client = $this->apiClient();
-        $body = (string) wp_json_encode($this->validSessionPayload());
+        $payload = $this->validSessionPayload();
         $this->fakeMollie()->failNext('POST', 'sessions', 503, 'Mollie is having a bad day.');
 
         try {
-            $client->performHttpCall('POST', 'sessions', $body);
+            $client->sessions->create($payload);
             $this->fail('The first call must fail.');
         } catch (ApiException $exception) {
             $this->assertSame(503, $exception->getCode());
         }
 
-        $this->assertStringStartsWith('sess_', $client->performHttpCall('POST', 'sessions', $body)->id);
+        $this->assertStringStartsWith('sess_', $client->sessions->create($payload)->id);
     }
 
     /**
@@ -298,7 +294,7 @@ class ExpressHarnessTest extends ExpressFlowTestCase
             'unitPrice' => ['currency' => 'EUR', 'value' => $this->formattedTotal($order)],
             'totalAmount' => ['currency' => 'EUR', 'value' => $this->formattedTotal($order)],
         ]];
-        $session = $this->apiClient()->performHttpCall('POST', 'sessions', (string) wp_json_encode($payload));
+        $session = $this->apiClient()->sessions->create($payload);
         $payment = $this->fakeMollie()->completeSession($session->id, [
             'status' => 'paid',
             'method' => 'ideal',
@@ -382,7 +378,7 @@ class ExpressHarnessTest extends ExpressFlowTestCase
         $this->assertNothingLeakedToLog();
     }
 
-    private function apiClient(): MollieApiClient
+    private function apiClient(): MollieClient
     {
         $container = $this->bootExpress();
 

@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Payment;
 
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\Resources\Order;
-use Mollie\Api\Resources\Payment;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\ExpressComponent\Rules\AddressMapping;
 use Mollie\WooCommerce\ExpressComponent\Rules\FirstSight;
 use Mollie\WooCommerce\Payment\Webhooks\WebhookHandler;
@@ -362,14 +361,6 @@ class MollieOrderService
                     $this->handlePaidOrderWebhook($order, $payment);
                     $this->processRefunds($order, $payment);
                     $this->processChargebacks($order, $payment);
-                    if (
-                        $order->get_status() === 'processing'
-                        && method_exists($payment, 'isCompleted')
-                        && $payment->isCompleted()
-                        && method_exists($this->webhookHandler, 'onWebhookCompleted')
-                    ) {
-                        $this->webhookHandler->onWebhookCompleted($order, $payment, $payment_method_title, $payment_object);
-                    }
                     return true;
                 }
 
@@ -463,7 +454,7 @@ class MollieOrderService
     /**
      * Once per payment: a redelivery, or a later refund of it, finds the question already open.
      *
-     * @param Payment|Order $payment
+     * @param Payment $payment
      */
     private function recordPaymentNotApplied(WC_Order $order, $payment): void
     {
@@ -580,7 +571,7 @@ class MollieOrderService
 
     /**
      * @param WC_Order $order
-     * @param Payment|Order $payment
+     * @param Payment $payment
      */
     protected function processRefunds(WC_Order $order, $payment)
     {
@@ -651,7 +642,7 @@ class MollieOrderService
 
     /**
      * @param WC_Order $order
-     * @param Payment|Order $payment
+     * @param Payment $payment
      */
     protected function processChargebacks(WC_Order $order, $payment)
     {
@@ -855,7 +846,7 @@ class MollieOrderService
             );
 
             return;
-        } catch (\Mollie\Api\Exceptions\ApiException $e) {
+        } catch (ApiException $e) {
             $this->logger->debug(
                 __FUNCTION__ . ": Could not load chargebacks for $payment->id: "
                 . $e->getMessage() . ' (' . get_class($e) . ')'
@@ -932,7 +923,7 @@ class MollieOrderService
             foreach ($refunds as $refund) {
                 $refundIds[] = $refund->id;
             }
-        } catch (\Mollie\Api\Exceptions\ApiException $e) {
+        } catch (ApiException $e) {
             $this->logger->debug(
                 __FUNCTION__
                 . " : Could not load refunds for {$payment->id}: {$e->getMessage()}"
@@ -943,7 +934,7 @@ class MollieOrderService
     }
 
     /**
-     * @param Order $payment
+     * @param Payment $payment
      * @param WC_Order $order
      */
     protected function setBillingAddressAfterPayment($payment, $order)
@@ -953,7 +944,7 @@ class MollieOrderService
     }
 
     /**
-     * @param Payment|Order $payment
+     * @param Payment $payment
      *
      * @return bool
      */
@@ -967,7 +958,7 @@ class MollieOrderService
 
     /**
      * @param WC_Order $order
-     * @param Payment|Order $payment
+     * @param Payment $payment
      */
     protected function processUpdateStateRefund(WC_Order $order, $payment)
     {
@@ -983,7 +974,7 @@ class MollieOrderService
 
     /**
      * @param WC_Order $order
-     * @param Payment|Order $payment
+     * @param Payment $payment
      * @param                                                         $newOrderStatus
      * @param                                                         $refundType
      */

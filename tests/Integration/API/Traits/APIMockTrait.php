@@ -6,7 +6,7 @@ namespace Mollie\WooCommerceTests\Integration\API\Traits;
 
 use Mollie\WooCommerce\Payment\MollieOrderService;
 use Mollie\WooCommerceTests\Integration\API\Mocks\MockedApi;
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
 
 trait APIMockTrait
 {

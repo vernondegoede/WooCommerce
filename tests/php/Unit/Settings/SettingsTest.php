@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerceTests\Unit\Settings;
 
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\SDK\Api;
 use Mollie\WooCommerce\Settings\ConnectionResult;
 use Mollie\WooCommerce\Settings\Settings;
@@ -430,7 +430,7 @@ class SettingsTest extends TestCase
     {
         $statusHelper = \Mockery::mock(
             Status::class . '[isCompatible]',
-            [\Mockery::mock(\Mollie\Api\CompatibilityChecker::class), 'Mollie Payments for WooCommerce']
+            ['Mollie Payments for WooCommerce']
         );
         $statusHelper->shouldReceive('isCompatible')->andReturn(true);
 

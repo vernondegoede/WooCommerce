@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Mollie\WooCommerce\SDK;
 
 use InvalidArgumentException;
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\MollieApiClient;
 use Mollie\WooCommerce\Log\EventLog;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerce\Shared\Values\ExpressSession;
@@ -36,19 +34,14 @@ final class SdkMollieApi implements MollieApi
     public function createSession(array $payload, string $idempotencyKey): ExpressSession
     {
         $client = $this->client();
-        $client->setIdempotencyKey($idempotencyKey);
 
         try {
-            $body = json_encode($payload, JSON_THROW_ON_ERROR);
-            $response = $this->sendLogged('POST', 'sessions', $idempotencyKey, static function () use ($client, $body) {
-                return $client->performHttpCall('POST', 'sessions', $body);
+            $response = $this->sendLogged('POST', 'sessions', $idempotencyKey, static function () use ($client, $payload, $idempotencyKey) {
+                return $client->sessions->create($payload, $idempotencyKey);
             });
         } catch (ApiException $exception) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- only the code is read; the message is fixed
             throw MollieCallFailed::fromThrowable($exception);
-        } finally {
-            // The SDK resets the key only after a completed request.
-            $client->resetIdempotencyKey();
         }
 
         try {
@@ -70,8 +63,8 @@ final class SdkMollieApi implements MollieApi
         $path = 'sessions/' . rawurlencode($sessionId);
 
         try {
-            return $this->toSession($this->sendLogged('GET', $path, '', static function () use ($client, $path) {
-                return $client->performHttpCall('GET', $path);
+            return $this->toSession($this->sendLogged('GET', $path, '', static function () use ($client, $sessionId) {
+                return $client->sessions->get($sessionId);
             }));
         } catch (ApiException $exception) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- only the code is read; the message is fixed
@@ -203,7 +196,7 @@ final class SdkMollieApi implements MollieApi
         return MollieAddress::fromArray(is_object($address) ? get_object_vars($address) : $address);
     }
 
-    private function client(): MollieApiClient
+    private function client(): MollieClient
     {
         return $this->api->getApiClient((string) $this->settings->getApiKey());
     }

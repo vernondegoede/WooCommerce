@@ -115,33 +115,6 @@ class Advanced extends AbstractSection
 
             ],
             [
-                'id' => $this->settings->getSettingId('api_switch'),
-                'title' => __(
-                    'Select API Method',
-                    'mollie-payments-for-woocommerce'
-                ),
-                'type' => 'select',
-                'options' => [
-                    PaymentProcessor::PAYMENT_METHOD_TYPE_ORDER => ucfirst(
-                        PaymentProcessor::PAYMENT_METHOD_TYPE_ORDER
-                    ),
-                    PaymentProcessor::PAYMENT_METHOD_TYPE_PAYMENT => ucfirst(
-                        PaymentProcessor::PAYMENT_METHOD_TYPE_PAYMENT
-                    ) . ' (' . __('default', 'mollie-payments-for-woocommerce')
-                        . ')',
-                ],
-                'default' => PaymentProcessor::PAYMENT_METHOD_TYPE_PAYMENT,
-                'desc' => sprintf(
-                /* translators: Placeholder 1: opening link tag, placeholder 2: closing link tag */
-                    __(
-                        'Payments API is the recommended option since Orders API will be deprecated. Click %1$shere%2$s to read more about the differences between the Payments and Orders API',
-                        'mollie-payments-for-woocommerce'
-                    ),
-                    '<a href="https://docs.mollie.com/reference/payments-api" target="_blank">',
-                    '</a>'
-                ),
-            ],
-            [
                 'id' => $this->settings->getSettingId('api_payment_description'),
                 'title' => __(
                     'API Payment Description',

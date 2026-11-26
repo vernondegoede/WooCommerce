@@ -244,7 +244,7 @@ class ConnectionStatusRenderingTest extends IntegrationMockedTestCase
         try {
             $this->bootstrapModule()->get('SDK.api_helper')->getApiClient(self::VALID_TEST_KEY, true)->methods->all();
             $this->fail('A 400 must raise an ApiException.');
-        } catch (\Mollie\Api\Exceptions\ApiException $exception) {
+        } catch (\Mollie\WooCommerce\SDK\ApiException $exception) {
             $this->assertSame(400, $exception->getCode());
             $this->assertSame(
                 $call . '. Documentation: https://docs.mollie.com/overview/handling-errors. Request body: '

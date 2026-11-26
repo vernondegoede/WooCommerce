@@ -7,7 +7,6 @@ namespace Mollie\WooCommerceTests\Integration\Common;
 use Mollie\WooCommerce\ExpressComponent\WooCommerce\OrphanedExpressPayments;
 use Mollie\WooCommerce\ExpressComponent\WooCommerce\PendingExpressOrders;
 use Mollie\WooCommerce\Payment\Webhooks\RestApi;
-use Mollie\WooCommerce\SDK\Api;
 use Mollie\WooCommerceTests\Integration\Common\Doubles\CanaryData;
 use Mollie\WooCommerceTests\Integration\Common\Doubles\RecordingLogger;
 use Mollie\WooCommerceTests\Integration\Common\FakeMollie\FakeMollieApi;
@@ -109,7 +108,6 @@ abstract class ExpressFlowTestCase extends IntegrationMockedTestCase
         $this->setOptionForTest('mollie_webhook_secret', CanaryData::WEBHOOK_SECRET);
         $this->useLiveMode();
 
-        $this->forgetApiClient();
         // The methods list the gateways register from now comes from the fake.
         $this->flushMollieMethodsCache();
     }
@@ -117,7 +115,6 @@ abstract class ExpressFlowTestCase extends IntegrationMockedTestCase
     public function tearDown(): void
     {
         $this->transport->uninstall();
-        $this->forgetApiClient();
         // Cached in the shared database, it would register this test's gateways in the next run.
         $this->flushMollieMethodsCache();
         $this->emptyCart();
@@ -219,24 +216,11 @@ abstract class ExpressFlowTestCase extends IntegrationMockedTestCase
     protected function useLiveMode(): void
     {
         $this->setOptionForTest(self::PLUGIN_ID . '_test_mode_enabled', 'no');
-        $this->forgetApiClient();
     }
 
     protected function useTestMode(): void
     {
         $this->setOptionForTest(self::PLUGIN_ID . '_test_mode_enabled', 'yes');
-        $this->forgetApiClient();
-    }
-
-    /**
-     * Api keeps its client in a process-wide static, keyed to nothing. A client built for an
-     * earlier test — or a Mockery double left by another test class — would otherwise be reused.
-     */
-    private function forgetApiClient(): void
-    {
-        $client = new \ReflectionProperty(Api::class, 'api_client');
-        $client->setAccessible(true);
-        $client->setValue(null, null);
     }
 
     // ──────────────────────────────────────────────────────────────────────────

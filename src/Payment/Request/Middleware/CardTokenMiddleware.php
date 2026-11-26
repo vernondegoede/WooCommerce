@@ -23,9 +23,7 @@ class CardTokenMiddleware implements RequestMiddlewareInterface
     public function __invoke(array $requestData, WC_Order $order, $context, $next): array
     {
         $cardToken = mollieWooCommerceCardToken();
-        if ($cardToken && isset($requestData['payment']) && $context === 'order') {
-            $requestData['payment']['cardToken'] = $cardToken;
-        } elseif ($cardToken && $context === 'payment') {
+        if ($cardToken && $context === 'payment') {
             $requestData['cardToken'] = $cardToken;
         }
         return $next($requestData, $order, $context);

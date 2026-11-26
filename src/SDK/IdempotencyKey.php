@@ -32,6 +32,31 @@ final class IdempotencyKey
     }
 
     /**
+     * Generate a random RFC 4122 UUID v4 suitable for Mollie's Idempotency-Key header.
+     */
+    public static function random(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+    }
+
+    /**
+     * Use the caller-supplied idempotency key when present, or generate a fresh UUID v4 so
+     * automatic SDK retries of this single network call remain idempotent.
+     */
+    public static function resolve(?string $idempotencyKey): string
+    {
+        if ($idempotencyKey !== null && $idempotencyKey !== '') {
+            return $idempotencyKey;
+        }
+
+        return self::random();
+    }
+
+    /**
      * @param mixed $value
      */
     private static function normalise(string $name, $value): string

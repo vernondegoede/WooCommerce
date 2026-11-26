@@ -52,9 +52,7 @@ class SelectedIssuerMiddleware implements RequestMiddlewareInterface
             return $next($requestData, $order, $context);
         }
 
-        if ($context === 'order') {
-            $requestData['payment']['issuer'] = $selectedIssuer;
-        } elseif ($context === 'payment') {
+        if ($context === 'payment') {
             $requestData['issuer'] = $selectedIssuer;
         }
 

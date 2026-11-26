@@ -10,8 +10,9 @@ use Mollie\Api\Models\Components\PaymentRequest;
 use Mollie\Api\Models\Components\RefundRequest;
 use Mollie\Api\Models\Operations\GetPaymentRequest;
 use Mollie\Api\Models\Operations\UpdatePaymentRequestBody;
-use Mollie\Api\Utils\JSON;
 use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\IdempotencyKey;
+use Mollie\WooCommerce\SDK\Resources\Normalizer;
 use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\SDK\Resources\Refund;
 use Throwable;
@@ -38,7 +39,7 @@ class PaymentsEndpoint
             $response = $this->sdk->payments->create(
                 body: $body,
                 include: $include,
-                idempotencyKey: $idempotencyKey
+                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
             );
 
             if ($response->paymentResponse === null) {
@@ -84,7 +85,7 @@ class PaymentsEndpoint
         try {
             $response = $this->sdk->payments->cancel(
                 paymentId: $paymentId,
-                idempotencyKey: $idempotencyKey
+                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
             );
 
             if ($response->paymentResponse === null) {
@@ -98,22 +99,23 @@ class PaymentsEndpoint
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param array<string, mixed>|UpdatePaymentRequestBody $data
      * @throws ApiException
      */
-    public function update(string $paymentId, array $data, ?string $idempotencyKey = null): Payment
+    public function update(string $paymentId, array|UpdatePaymentRequestBody $data, ?string $idempotencyKey = null): Payment
     {
         try {
-            $serializer = JSON::createSerializer();
-            $body = $serializer->deserialize(
-                json_encode($data, JSON_THROW_ON_ERROR),
-                UpdatePaymentRequestBody::class,
-                'json'
-            );
+            $body = $data instanceof UpdatePaymentRequestBody
+                ? $data
+                : Normalizer::serializer()->deserialize(
+                    json_encode($data, JSON_THROW_ON_ERROR),
+                    UpdatePaymentRequestBody::class,
+                    'json'
+                );
             $response = $this->sdk->payments->update(
                 paymentId: $paymentId,
                 body: $body,
-                idempotencyKey: $idempotencyKey
+                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
             );
 
             if ($response->paymentResponse === null) {
@@ -153,7 +155,7 @@ class PaymentsEndpoint
             $response = $this->sdk->refunds->create(
                 paymentId: $paymentId,
                 body: $refundRequest,
-                idempotencyKey: $idempotencyKey
+                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
             );
 
             if ($response->refundResponse === null) {
@@ -174,7 +176,7 @@ class PaymentsEndpoint
         try {
             $this->sdk->payments->releaseAuthorization(
                 paymentId: $paymentId,
-                idempotencyKey: $idempotencyKey
+                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
             );
         } catch (Throwable $throwable) {
             throw ApiException::fromSdkThrowable($throwable);
@@ -186,9 +188,7 @@ class PaymentsEndpoint
      */
     private function deserializePaymentRequest(array $data): PaymentRequest
     {
-        $serializer = JSON::createSerializer();
-
-        return $serializer->deserialize(
+        return Normalizer::serializer()->deserialize(
             json_encode($data, JSON_THROW_ON_ERROR),
             PaymentRequest::class,
             'json'

@@ -1,10 +1,10 @@
 {
     "handler-lookups": 22,
     "container-params": 16,
-    "static-properties": 5,
+    "static-properties": 4,
     "class-from-string": 11,
     "method-classes-with-hooks": 8,
-    "orders-api-symbols": 12,
+    "orders-api-symbols": 6,
     "data-importers": 25,
     "superglobals-outside-entry": 23,
     "mutating-sdk-calls": 8,

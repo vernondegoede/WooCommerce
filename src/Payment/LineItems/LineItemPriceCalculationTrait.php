@@ -7,13 +7,11 @@ namespace Mollie\WooCommerce\Payment\LineItems;
 use WC_Tax;
 
 /**
- * Shared VAT-rate and Mollie price derivation for the Orders API (OrderLines) and
- * Payments API (PaymentLines) line-item builders.
+ * VAT-rate and Mollie price derivation for the Payments API (PaymentLines) line-item builder.
  *
  * The vatRate is read from the configured WooCommerce tax rates and the gross price and VAT amount
  * are derived together from that single rate, so vatRate / totalAmount / vatAmount always satisfy
  * Mollie's cross-field validation (vatAmount == grossPrice * vatRate/(100+vatRate)) by construction.
- * Keeping this in one place prevents the two builders from drifting apart (PIWOO-931).
  */
 trait LineItemPriceCalculationTrait
 {

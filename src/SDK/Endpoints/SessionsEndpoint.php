@@ -9,8 +9,10 @@ use Mollie\Api\Client;
 use Mollie\Api\Models\Components\SessionRequest;
 use Mollie\Api\Models\Errors\APIException as SdkApiException;
 use Mollie\Api\Models\Errors\ErrorResponse;
-use Mollie\Api\Utils\JSON;
+use Mollie\Api\Utils\Retry\RetryConfigBackoff;
+use Mollie\Api\Utils\Retry\RetryUtils;
 use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\IdempotencyKey;
 use Mollie\WooCommerce\SDK\Resources\Normalizer;
 use Speakeasy\Serializer\DeserializationContext;
 use stdClass;
@@ -35,13 +37,14 @@ class SessionsEndpoint
      */
     public function create(array $payload, ?string $idempotencyKey = null): stdClass
     {
+        $resolvedKey = IdempotencyKey::resolve($idempotencyKey);
+
         try {
             if (array_key_exists('shipping', $payload)) {
-                return $this->createWithRawPayload($payload, $idempotencyKey);
+                return $this->createWithRawPayload($payload, $resolvedKey);
             }
 
-            $serializer = JSON::createSerializer();
-            $body = $serializer->deserialize(
+            $body = Normalizer::serializer()->deserialize(
                 json_encode($payload, JSON_THROW_ON_ERROR),
                 SessionRequest::class,
                 'json'
@@ -49,7 +52,7 @@ class SessionsEndpoint
 
             $response = $this->sdk->sessions->create(
                 body: $body,
-                idempotencyKey: $idempotencyKey
+                idempotencyKey: $resolvedKey
             );
 
             if ($response->sessionResponse === null) {
@@ -94,7 +97,7 @@ class SessionsEndpoint
      * @param array<string, mixed> $payload
      * @throws ApiException
      */
-    private function createWithRawPayload(array $payload, ?string $idempotencyKey): stdClass
+    private function createWithRawPayload(array $payload, string $idempotencyKey): stdClass
     {
         $config = $this->sdk->sdkConfiguration;
         $baseUrl = rtrim($config->getTemplatedServerUrl(), '/');
@@ -103,13 +106,8 @@ class SessionsEndpoint
             'Accept' => 'application/hal+json',
             'Content-Type' => 'application/json',
             'user-agent' => $config->userAgent,
+            'idempotency-key' => $idempotencyKey,
         ];
-        if (isset($config->globals['parameters']['header']['customUserAgent'])) {
-            $headers['customUserAgent'] = $config->globals['parameters']['header']['customUserAgent'];
-        }
-        if ($idempotencyKey !== null && $idempotencyKey !== '') {
-            $headers['idempotency-key'] = $idempotencyKey;
-        }
 
         $httpRequest = new Request('POST', $url);
         $httpOptions = [
@@ -123,7 +121,19 @@ class SessionsEndpoint
             throw new ApiException('Mollie SDK HTTP client is not initialized.', 0);
         }
 
-        $httpResponse = $client->send($httpRequest, $httpOptions);
+        $retryConfig = $config->retryConfig ?? new RetryConfigBackoff(
+            initialIntervalMs: 500,
+            maxIntervalMs: 2500,
+            exponent: 2,
+            maxElapsedTimeMs: 5000,
+            retryConnectionErrors: true
+        );
+
+        $httpResponse = RetryUtils::retryWrapper(
+            static fn () => $client->send($httpRequest, $httpOptions),
+            $retryConfig,
+            ['429', '5xx']
+        );
         $statusCode = $httpResponse->getStatusCode();
         $responseBody = (string) $httpResponse->getBody();
 
@@ -136,9 +146,8 @@ class SessionsEndpoint
         }
 
         if ($statusCode === 422 || $statusCode === 429 || $statusCode === 404 || $statusCode === 401) {
-            $serializer = JSON::createSerializer();
             try {
-                $errorObj = $serializer->deserialize(
+                $errorObj = Normalizer::serializer()->deserialize(
                     $responseBody,
                     ErrorResponse::class,
                     'json',

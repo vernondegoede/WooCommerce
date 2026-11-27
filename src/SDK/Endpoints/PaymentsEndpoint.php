@@ -6,6 +6,8 @@ namespace Mollie\WooCommerce\SDK\Endpoints;
 
 use Mollie\Api\Client;
 use Mollie\Api\Models\Components\Amount;
+use Mollie\Api\Models\Components\Locale;
+use Mollie\Api\Models\Components\MethodEnum;
 use Mollie\Api\Models\Components\PaymentRequest;
 use Mollie\Api\Models\Components\RefundRequest;
 use Mollie\Api\Models\Operations\CancelPaymentRequest;
@@ -24,6 +26,15 @@ use Throwable;
 
 class PaymentsEndpoint
 {
+    /**
+     * Legacy Orders-API Klarna method IDs mapped to the Payments API unified Klarna method.
+     */
+    private const LEGACY_METHOD_MAP = [
+        'klarnapaylater' => 'klarna',
+        'klarnapaynow' => 'klarna',
+        'klarnasliceit' => 'klarna',
+    ];
+
     public function __construct(private Client $sdk)
     {
     }
@@ -114,13 +125,16 @@ class PaymentsEndpoint
     public function update(string $paymentId, array|UpdatePaymentRequestBody $data, ?string $idempotencyKey = null): Payment
     {
         try {
-            $body = $data instanceof UpdatePaymentRequestBody
-                ? $data
-                : Normalizer::serializer()->deserialize(
+            if ($data instanceof UpdatePaymentRequestBody) {
+                $body = $data;
+            } else {
+                $data = $this->sanitizeLocale($data);
+                $body = Normalizer::serializer()->deserialize(
                     json_encode($data, JSON_THROW_ON_ERROR),
                     UpdatePaymentRequestBody::class,
                     'json'
                 );
+            }
             $response = $this->sdk->payments->update(
                 new UpdatePaymentRequest(
                     paymentId: $paymentId,
@@ -203,10 +217,115 @@ class PaymentsEndpoint
      */
     private function deserializePaymentRequest(array $data): PaymentRequest
     {
-        return Normalizer::serializer()->deserialize(
+        $data = $this->sanitizeLocale($data);
+        $data = $this->promoteBillingEmail($data);
+
+        foreach (['sequenceType', 'captureMode'] as $enumField) {
+            if (isset($data[$enumField]) && $data[$enumField] === '') {
+                unset($data[$enumField]);
+            }
+        }
+
+        // Work around Speakeasy UnionHandler failing on array<MethodEnum> deserialization
+        // and map legacy Klarna Orders-API method IDs to the unified Payments API 'klarna' method.
+        $methodArray = null;
+        if (isset($data['method'])) {
+            if (is_string($data['method'])) {
+                $normalized = self::LEGACY_METHOD_MAP[$data['method']] ?? $data['method'];
+                if ($normalized === '' || MethodEnum::tryFrom($normalized) === null) {
+                    unset($data['method']);
+                } else {
+                    $data['method'] = $normalized;
+                }
+            } elseif (is_array($data['method'])) {
+                $values = [];
+                foreach ($data['method'] as $item) {
+                    if ($item instanceof MethodEnum) {
+                        $values[] = $item->value;
+                        continue;
+                    }
+                    if (!is_string($item)) {
+                        continue;
+                    }
+                    $normalized = self::LEGACY_METHOD_MAP[$item] ?? $item;
+                    $enum = MethodEnum::tryFrom($normalized);
+                    if ($enum !== null) {
+                        $values[] = $enum->value;
+                    }
+                }
+                unset($data['method']);
+                if ($values !== []) {
+                    $methodArray = $values;
+                }
+            }
+        }
+
+        /** @var PaymentRequest $request */
+        $request = Normalizer::serializer()->deserialize(
             json_encode($data, JSON_THROW_ON_ERROR),
             PaymentRequest::class,
             'json'
         );
+
+        if ($methodArray !== null) {
+            // Assign string backing values because Speakeasy's UnionHandler serializes
+            // array<MethodEnum> items as {name, value} objects instead of enum strings.
+            /** @phpstan-ignore-next-line */
+            $request->method = $methodArray;
+        }
+
+        return $request;
+    }
+
+    /**
+     * Drop unrecognized/empty locales so stores using WordPress locales outside Mollie's
+     * Locale enum fall back cleanly instead of throwing during deserialization.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function sanitizeLocale(array $data): array
+    {
+        if (!array_key_exists('locale', $data)) {
+            return $data;
+        }
+
+        if (!is_string($data['locale']) || $data['locale'] === '' || Locale::tryFrom($data['locale']) === null) {
+            unset($data['locale']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * Promote legacy top-level billingEmail (e.g. from custom filters or banktransfer payloads)
+     * into billingAddress.email so it is preserved on PaymentRequest.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private function promoteBillingEmail(array $data): array
+    {
+        if (!isset($data['billingEmail']) || !is_string($data['billingEmail']) || trim($data['billingEmail']) === '') {
+            unset($data['billingEmail']);
+            return $data;
+        }
+
+        $email = $data['billingEmail'];
+        unset($data['billingEmail']);
+
+        if (!isset($data['billingAddress'])) {
+            $data['billingAddress'] = ['email' => $email];
+        } elseif (is_object($data['billingAddress'])) {
+            $address = clone $data['billingAddress'];
+            if (empty($address->email)) {
+                $address->email = $email;
+            }
+            $data['billingAddress'] = $address;
+        } elseif (is_array($data['billingAddress']) && empty($data['billingAddress']['email'])) {
+            $data['billingAddress']['email'] = $email;
+        }
+
+        return $data;
     }
 }

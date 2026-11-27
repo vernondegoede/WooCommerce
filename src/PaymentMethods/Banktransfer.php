@@ -108,19 +108,21 @@ class Banktransfer extends AbstractPaymentMethod implements PaymentMethodI
         if ($expiry_days >= self::EXPIRY_MIN_DAYS && $expiry_days <= self::EXPIRY_MAX_DAYS) {
             $expiry_date = gmdate("Y-m-d", strtotime(sprintf('+%s days', $expiry_days)));
 
-            // Add dueDate at the correct location
+            // Add dueDate when expiry days setting is active
             if ($this->isExpiredDateSettingActivated()) {
-                if (isset($args['payment'])) {
-                    $args['payment']['dueDate'] = $expiry_date;
-                } else {
-                    $args['dueDate'] = $expiry_date;
-                }
+                $args['dueDate'] = $expiry_date;
             }
 
             $email = (ctype_space($order->get_billing_email())) ? null
                 : $order->get_billing_email();
             if ($email) {
-                $args['billingEmail'] = $email;
+                if (!isset($args['billingAddress'])) {
+                    $args['billingAddress'] = (object) ['email' => $email];
+                } elseif (is_object($args['billingAddress']) && empty($args['billingAddress']->email)) {
+                    $args['billingAddress']->email = $email;
+                } elseif (is_array($args['billingAddress']) && empty($args['billingAddress']['email'])) {
+                    $args['billingAddress']['email'] = $email;
+                }
             }
         }
 

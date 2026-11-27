@@ -423,4 +423,70 @@ class SdkTest extends TestCase
 
         self::assertInstanceOf(RetryConfigNone::class, $client->sdk()->sdkConfiguration->retryConfig);
     }
+
+    /**
+     * @test
+     */
+    public function paymentsEndpointSanitizesLocaleLegacyKlarnaArrayMethodsAndBillingEmail(): void
+    {
+        $history = [];
+        $paymentJson = static function (string $id): string {
+            return json_encode([
+                'resource' => 'payment',
+                'id' => $id,
+                'mode' => 'test',
+                'createdAt' => '2026-01-01T00:00:00+00:00',
+                'amount' => ['value' => '15.00', 'currency' => 'EUR'],
+                'description' => 'Order #99',
+                'sequenceType' => 'oneoff',
+                'profileId' => 'pfl_123',
+                'status' => 'open',
+                '_links' => [
+                    'self' => ['href' => 'https://api.mollie.com/v2/payments/' . $id, 'type' => 'application/hal+json'],
+                    'dashboard' => ['href' => 'https://my.mollie.com/dashboard/payments/' . $id, 'type' => 'text/html'],
+                ],
+            ], JSON_THROW_ON_ERROR);
+        };
+
+        $mock = new MockHandler([
+            new Response(201, ['Content-Type' => 'application/hal+json'], $paymentJson('tr_edge1')),
+            new Response(201, ['Content-Type' => 'application/hal+json'], $paymentJson('tr_edge2')),
+        ]);
+
+        $stack = HandlerStack::create($mock);
+        $stack->push(Middleware::history($history));
+        $guzzle = new GuzzleClient(['handler' => $stack, 'http_errors' => false]);
+
+        $sdk = Client::builder()
+            ->setClient($guzzle)
+            ->setSecurity(new Security(apiKey: 'test_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'))
+            ->build();
+
+        $client = new MollieClient($sdk);
+
+        $client->payments->create([
+            'amount' => ['currency' => 'EUR', 'value' => '15.00'],
+            'description' => 'Order #99',
+            'redirectUrl' => 'https://example.com/return',
+            'locale' => 'ar_SA',
+            'method' => 'klarnapaylater',
+            'billingEmail' => 'buyer@example.com',
+        ]);
+
+        $firstBody = json_decode((string) $history[0]['request']->getBody(), true);
+        self::assertArrayNotHasKey('locale', $firstBody);
+        self::assertSame('klarna', $firstBody['method']);
+        self::assertSame('buyer@example.com', $firstBody['billingAddress']['email'] ?? null);
+        self::assertArrayNotHasKey('billingEmail', $firstBody);
+
+        $client->payments->create([
+            'amount' => ['currency' => 'EUR', 'value' => '15.00'],
+            'description' => 'Order #100',
+            'redirectUrl' => 'https://example.com/return',
+            'method' => ['ideal', 'klarnasliceit'],
+        ]);
+
+        $secondBody = json_decode((string) $history[1]['request']->getBody(), true);
+        self::assertSame(['ideal', 'klarna'], $secondBody['method']);
+    }
 }

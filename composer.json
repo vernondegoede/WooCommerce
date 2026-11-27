@@ -19,7 +19,7 @@
     "php": "^8.2",
     "ext-intl": "*",
     "ext-json": "*",
-    "mollie/php": "^0.1.0-alpha.1",
+    "mollie/php": "0.1.0-alpha.1",
     "inpsyde/modularity": "^1.11.0",
     "psr/container": "1.1.0",
     "psr/log":"^1.1.4",

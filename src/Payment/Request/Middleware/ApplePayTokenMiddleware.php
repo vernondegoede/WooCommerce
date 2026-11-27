@@ -28,9 +28,7 @@ class ApplePayTokenMiddleware implements RequestMiddlewareInterface
             return $next($requestData, $order, $context);
         }
         $encodedApplePayToken = wp_json_encode($applePayToken);
-        if ($context === 'order') {
-            $requestData['payment']['applePayPaymentToken'] = $encodedApplePayToken;
-        } elseif ($context === 'payment') {
+        if ($context === 'payment') {
             $requestData['applePayPaymentToken'] = $encodedApplePayToken;
         }
         return $next($requestData, $order, $context);

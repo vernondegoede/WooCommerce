@@ -2,7 +2,7 @@
 
 namespace Mollie\WooCommerce\Payment;
 
-use Mollie\Api\Types\SequenceType;
+use Mollie\Api\Models\Components\SequenceType;
 use Mollie\WooCommerce\Payment\Request\Middleware\MiddlewareHandler;
 use Mollie\WooCommerce\Payment\Request\Middleware\PaymentDescriptionMiddleware;
 use Mollie\WooCommerce\PaymentMethods\PaymentMethodI;
@@ -73,7 +73,7 @@ class MollieSubscription extends MollieObject
                                 'metadata' =>  [
                                     'order_id' => $order->get_id(),
                                 ],
-                                'sequenceType' => SequenceType::SEQUENCETYPE_RECURRING,
+                                'sequenceType' => SequenceType::Recurring->value,
                                 'customerId' => $customerId,
                             ]);
         $context = 'payment';
@@ -140,7 +140,7 @@ class MollieSubscription extends MollieObject
                 $currency,
                 $recurring_total,
                 $billingCountry,
-                SequenceType::SEQUENCETYPE_RECURRING,
+                SequenceType::Recurring->value,
                 $paymentLocale
             );
             $status = $deprecatedSubscriptionHelper->isAvailableMethodInCheckout($filters);
@@ -154,7 +154,7 @@ class MollieSubscription extends MollieObject
             $currency,
             $orderTotal,
             $billingCountry,
-            SequenceType::SEQUENCETYPE_FIRST,
+            SequenceType::First->value,
             $paymentLocale
         );
         return $deprecatedSubscriptionHelper->isAvailableMethodInCheckout($filters);

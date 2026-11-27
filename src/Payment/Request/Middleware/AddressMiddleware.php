@@ -42,13 +42,12 @@ class AddressMiddleware implements RequestMiddlewareInterface
             $billingAddress = $this->createBillingAddress($order);
             $shippingAddress = $this->createShippingAddress($order);
         }
-        // Only add billingAddress if all required fields are set or on order API
+        // Only add billingAddress if all required fields are set
         if (
-            $context === 'order' || (
             !empty($billingAddress->streetAndNumber)
             && !empty($billingAddress->postalCode)
             && !empty($billingAddress->city)
-            && !empty($billingAddress->country))
+            && !empty($billingAddress->country)
         ) {
             $requestData['billingAddress'] = $billingAddress;
         }

@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerceTests\Integration\spec\Settings;
 
-use Mollie\WooCommerce\SDK\Api;
 use Mollie\WooCommerce\Settings\MollieSettingsPage;
 use Mollie\WooCommerceTests\Integration\IntegrationMockedTestCase;
-use ReflectionProperty;
 use WC_Admin_Settings;
 use WP_Error;
 
@@ -56,7 +54,6 @@ class ConnectionStatusRenderingTest extends IntegrationMockedTestCase
             $this->hookBackup[$name] = clone $hook;
         }
         $this->loadWooCommerceAdminSettings();
-        $this->forgetApiClient();
         $this->setOption(self::PLUGIN_ID . '_test_mode_enabled', 'yes');
         $this->setOption(self::PLUGIN_ID . '_test_api_key', self::VALID_TEST_KEY);
 
@@ -88,7 +85,6 @@ class ConnectionStatusRenderingTest extends IntegrationMockedTestCase
             $previous === null ? delete_option($name) : update_option($name, $previous);
         }
         $this->optionBackups = [];
-        $this->forgetApiClient();
         parent::tearDown();
     }
 
@@ -244,7 +240,7 @@ class ConnectionStatusRenderingTest extends IntegrationMockedTestCase
         try {
             $this->bootstrapModule()->get('SDK.api_helper')->getApiClient(self::VALID_TEST_KEY, true)->methods->all();
             $this->fail('A 400 must raise an ApiException.');
-        } catch (\Mollie\Api\Exceptions\ApiException $exception) {
+        } catch (\Mollie\WooCommerce\SDK\ApiException $exception) {
             $this->assertSame(400, $exception->getCode());
             $this->assertSame(
                 $call . '. Documentation: https://docs.mollie.com/overview/handling-errors. Request body: '
@@ -311,17 +307,6 @@ class ConnectionStatusRenderingTest extends IntegrationMockedTestCase
             $this->optionBackups[$name] = $existing === false ? null : $existing;
         }
         update_option($name, $value);
-    }
-
-    /**
-     * Api keeps one client per request in a static property; another test's client (or a Mockery
-     * double) would otherwise answer instead of the real SDK.
-     */
-    private function forgetApiClient(): void
-    {
-        $property = new ReflectionProperty(Api::class, 'api_client');
-        $property->setAccessible(true);
-        $property->setValue(null, null);
     }
 
     private function loadWooCommerceAdminSettings(): void

@@ -19,9 +19,6 @@ use function Brain\Monkey\Functions\when;
 class OrderLinesMiddlewareTest extends TestCase
 {
     /** @var LineItemProvider&\Mockery\MockInterface */
-    private $orderLines;
-
-    /** @var LineItemProvider&\Mockery\MockInterface */
     private $paymentLines;
 
     private OrderLinesMiddleware $sut;
@@ -29,9 +26,8 @@ class OrderLinesMiddlewareTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->orderLines = Mockery::mock(LineItemProvider::class);
         $this->paymentLines = Mockery::mock(LineItemProvider::class);
-        $this->sut = new OrderLinesMiddleware($this->orderLines, $this->paymentLines);
+        $this->sut = new OrderLinesMiddleware($this->paymentLines);
     }
 
     /**

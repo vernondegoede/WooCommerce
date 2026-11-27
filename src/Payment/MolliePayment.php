@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Payment;
 
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\Resources\Payment;
-use Mollie\Api\Resources\Refund;
 use Mollie\WooCommerce\Payment\Request\RequestFactory;
 use Mollie\WooCommerce\SDK\Api;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Resources\Payment;
+use Mollie\WooCommerce\SDK\Resources\Refund;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerce\Shared\Data;
 use Psr\Log\LoggerInterface as Logger;

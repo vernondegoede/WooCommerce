@@ -4,48 +4,32 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Payment;
 
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\Resources\Order;
-use Mollie\WooCommerce\SDK\Api;
-use Mollie\WooCommerce\Settings\Settings;
-use Mollie\WooCommerce\Shared\Data;
+use Mollie\WooCommerce\SDK\ApiException;
 
 class PaymentFactory
 {
-    private $mollieOrderFactory;
+    /** @var callable */
     private $molliePaymentFactory;
 
     /**
      * PaymentFactory constructor.
      */
-    public function __construct(callable $mollieOrderFactory, callable $molliePaymentFactory)
+    public function __construct(callable $molliePaymentFactory)
     {
-        $this->mollieOrderFactory = $mollieOrderFactory;
         $this->molliePaymentFactory = $molliePaymentFactory;
     }
 
     /**
-     * @param $data
-     * @return bool|MollieOrder|MolliePayment
+     * @param mixed $data
+     * @return bool|MolliePayment
      * @throws ApiException
      */
     public function getPaymentObject($data)
     {
-
-        if (
-            (!is_object($data) && $data === 'order')
-            || (is_string($data) && strpos($data, 'ord_') !== false)
-            || (is_object($data) && $data->resource === 'order')
-        ) {
-            $mollieOrder = ($this->mollieOrderFactory)();
-            $mollieOrder->setOrder($data);
-            return $mollieOrder;
-        }
-
         if (
             (!is_object($data) && $data === 'payment')
-            || (!is_object($data) && strpos($data, 'tr_') !== false)
-            || (is_object($data) && $data->resource === 'payment')
+            || (is_string($data) && strpos($data, 'tr_') !== false)
+            || (is_object($data) && ($data->resource ?? null) === 'payment')
         ) {
             $molliePayment = ($this->molliePaymentFactory)();
             $molliePayment->setPayment($data);

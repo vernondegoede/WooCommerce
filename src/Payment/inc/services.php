@@ -2,15 +2,12 @@
 
 declare(strict_types=1);
 
-use Mollie\WooCommerce\Gateway\Refund\OrderItemsRefunder;
 use Mollie\WooCommerce\Payment\MollieObject;
-use Mollie\WooCommerce\Payment\MollieOrder;
 use Mollie\WooCommerce\Log\EventLog;
 use Mollie\WooCommerce\Payment\MollieOrderService;
 use Mollie\WooCommerce\ExpressComponent\Flow\ResolveExpressPayment;
 use Mollie\WooCommerce\Payment\MolliePayment;
 use Mollie\WooCommerce\Payment\LineItems\LineItemProvider;
-use Mollie\WooCommerce\Payment\LineItems\OrderLines;
 use Mollie\WooCommerce\Payment\LineItems\PaymentLines;
 use Mollie\WooCommerce\Payment\PaymentFactory;
 use Mollie\WooCommerce\Payment\Request\Middleware\AddCustomRequestFieldsMiddleware;
@@ -26,7 +23,6 @@ use Mollie\WooCommerce\Payment\Request\Middleware\PaymentDescriptionMiddleware;
 use Mollie\WooCommerce\Payment\Request\Middleware\SelectedIssuerMiddleware;
 use Mollie\WooCommerce\Payment\Request\Middleware\StoreCustomerMiddleware;
 use Mollie\WooCommerce\Payment\Request\Middleware\UrlMiddleware;
-use Mollie\WooCommerce\Payment\Request\Strategies\OrderRequestStrategy;
 use Mollie\WooCommerce\Payment\Request\Strategies\PaymentRequestStrategy;
 use Mollie\WooCommerce\Payment\Request\RequestFactory;
 use Mollie\WooCommerce\Payment\Request\Strategies\RequestStrategyInterface;
@@ -75,11 +71,6 @@ return static function (): array {
             $requestFactory = $container->get(RequestFactory::class);
             return new MollieObject($data, $logger, $paymentFactory, $apiHelper, $settingsHelper, $pluginId, $requestFactory);
         },
-        OrderLines::class => static function (ContainerInterface $container): LineItemProvider {
-            $data = $container->get('settings.data_helper');
-            $pluginId = $container->get('shared.plugin_id');
-            return new OrderLines($data, $pluginId);
-        },
         PaymentLines::class => static function (ContainerInterface $container): LineItemProvider {
             $data = $container->get('settings.data_helper');
             $pluginId = $container->get('shared.plugin_id');
@@ -87,18 +78,6 @@ return static function (): array {
         },
         PaymentFactory::class => static function (ContainerInterface $container): PaymentFactory {
             return new PaymentFactory(
-                static function () use ($container) {
-                    return new MollieOrder(
-                        $container->get(OrderItemsRefunder::class),
-                        'order',
-                        $container->get('shared.plugin_id'),
-                        $container->get('SDK.api_helper'),
-                        $container->get('settings.settings_helper'),
-                        $container->get('settings.data_helper'),
-                        $container->get(Logger::class),
-                        $container->get(RequestFactory::class)
-                    );
-                },
                 static function () use ($container) {
                     return new MolliePayment(
                         'payment',
@@ -136,9 +115,8 @@ return static function (): array {
             return new AddSequenceTypeForSubscriptionsMiddleware($dataHelper, $pluginId);
         },
         OrderLinesMiddleware::class => static function (ContainerInterface $container): OrderLinesMiddleware {
-            $orderLines = $container->get(OrderLines::class);
             $paymentLines = $container->get(PaymentLines::class);
-            return new OrderLinesMiddleware($orderLines, $paymentLines);
+            return new OrderLinesMiddleware($paymentLines);
         },
         AddressMiddleware::class => static function (): AddressMiddleware {
             return new AddressMiddleware();
@@ -161,28 +139,6 @@ return static function (): array {
         AddCustomRequestFieldsMiddleware::class => static function (ContainerInterface $container): AddCustomRequestFieldsMiddleware {
             $paymentMethods = $container->get('gateway.paymentMethods');
             return new AddCustomRequestFieldsMiddleware($paymentMethods, $container);
-        },
-        'request.strategy.order' => static function (ContainerInterface $container): RequestStrategyInterface {
-            $dataHelper = $container->get('settings.data_helper');
-            $settingsHelper = $container->get('settings.settings_helper');
-            $middlewares = [
-                $container->get(CustomerBirthdateMiddleware::class),
-                $container->get(ApplePayTokenMiddleware::class),
-                $container->get(CardTokenMiddleware::class),
-                $container->get(StoreCustomerMiddleware::class),
-                $container->get(AddSequenceTypeForSubscriptionsMiddleware::class),
-                $container->get(OrderLinesMiddleware::class),
-                $container->get(AddressMiddleware::class),
-                $container->get(UrlMiddleware::class),
-                $container->get(SelectedIssuerMiddleware::class),
-            ];
-            $middlewareHandler = new MiddlewareHandler($middlewares);
-
-            return new OrderRequestStrategy(
-                $dataHelper,
-                $settingsHelper,
-                $middlewareHandler
-            );
         },
         'request.strategy.payment' => static function (ContainerInterface $container): RequestStrategyInterface {
             $dataHelper = $container->get('settings.data_helper');

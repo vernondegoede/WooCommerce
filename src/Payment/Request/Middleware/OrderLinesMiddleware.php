@@ -10,25 +10,16 @@ use WC_Order;
 /**
  * Class OrderLinesMiddleware
  *
- * Middleware to handle order lines in the request.
+ * Middleware to handle line items in the payment request.
  *
  * @package Mollie\WooCommerce\Payment\Request\Middleware
  */
 class OrderLinesMiddleware implements RequestMiddlewareInterface
 {
-    /**
-     * @var LineItemProvider The order lines handler (Orders API context).
-     */
-    private LineItemProvider $orderLines;
-
-    /**
-     * @var LineItemProvider The payment lines handler (Payments API context).
-     */
     private LineItemProvider $paymentLines;
 
-    public function __construct(LineItemProvider $orderLines, LineItemProvider $paymentLines)
+    public function __construct(LineItemProvider $paymentLines)
     {
-        $this->orderLines = $orderLines;
         $this->paymentLines = $paymentLines;
     }
 
@@ -43,25 +34,18 @@ class OrderLinesMiddleware implements RequestMiddlewareInterface
      */
     public function __invoke(array $requestData, WC_Order $order, $context, $next): array
     {
-        if ($context === 'payment') {
-            $methodId = $requestData['method'] ?? '';
-            $optionName = 'mollie_wc_gateway_' . $methodId . '_settings';
-            $hideOrderLines = (get_option($optionName, false)['hide_order_lines'] ?? '') === 'yes';
-            if ($hideOrderLines) {
-                /**
-                 * Merchant has configured to hide order lines via payment method settings.
-                 */
-                return $next($requestData, $order, $context);
-            }
-            $requestData['lines'] = $this->paymentLines->order_lines($order);
+        $methodId = $requestData['method'] ?? '';
+        $optionName = 'mollie_wc_gateway_' . $methodId . '_settings';
+        $hideOrderLines = (get_option($optionName, false)['hide_order_lines'] ?? '') === 'yes';
+        if ($hideOrderLines) {
+            /**
+             * Merchant has configured to hide order lines via payment method settings.
+             */
             return $next($requestData, $order, $context);
         }
 
-        /**
-         * lines are required when Orders API is in use.
-         * @see https://docs.mollie.com/reference/create-order
-         */
-        $requestData['lines'] = $this->orderLines->order_lines($order);
+        $requestData['lines'] = $this->paymentLines->order_lines($order);
+
         return $next($requestData, $order, $context);
     }
 }

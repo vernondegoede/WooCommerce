@@ -1,8 +1,5 @@
 <?php
 
-use Mollie\Api\Endpoints\OrderEndpoint;
-use Mollie\WooCommerce\Payment\OrderItemsRefunder;
-
 use Mollie\WooCommerceTests\TestCase;
 
 class WC_Order

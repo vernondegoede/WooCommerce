@@ -6,7 +6,7 @@ namespace Mollie\WooCommerceTests\Integration\spec\Payment;
 
 use Inpsyde\PaymentGateway\PaymentGateway;
 use Mockery;
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\Payment\PaymentProcessor;
 use Mollie\WooCommerceTests\Integration\IntegrationMockedTestCase;
 use Mollie\WooCommerceTests\Integration\API\Traits\APIMockTrait;

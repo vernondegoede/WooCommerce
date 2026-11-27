@@ -4,42 +4,60 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\SDK;
 
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\MollieApiClient;
+use Mollie\Api\Client;
+use Mollie\Api\Models\Components\Security;
+use Mollie\Api\Utils\Retry\RetryConfig;
+use Mollie\Api\Utils\Retry\RetryConfigBackoff;
+use Mollie\WooCommerce\Log\EventLog;
 
 class Api
 {
+    public const DEFAULT_API_ENDPOINT = 'https://api.mollie.com';
+
     /**
-     * @var \Mollie\Api\MollieApiClient|null
+     * Cached SDK clients keyed by hashed API key + endpoint so switching between test/live keys
+     * or multisite blogs never leaks a client built for another credential.
+     *
+     * @var array<string, MollieClient>
      */
-    protected static ?MollieApiClient $api_client = null;
+    private array $clients = [];
+
     /**
      * @var string
      */
     protected $pluginVersion;
+
     /**
      * @var string
      */
     protected $pluginId;
 
-    public function __construct(string $pluginVersion, string $pluginId)
+    private ?EventLog $eventLog;
+
+    public function __construct(string $pluginVersion, string $pluginId, ?EventLog $eventLog = null)
     {
         $this->pluginVersion = $pluginVersion;
         $this->pluginId = $pluginId;
+        $this->eventLog = $eventLog;
+    }
+
+    /**
+     * Clear cached MollieClient instances.
+     */
+    public function resetClients(): void
+    {
+        $this->clients = [];
     }
 
     /**
      * @param string $apiKey
      * @param bool $needToUpdateApiKey If the apiKey was updated discard the old instance, and create a new one with the new key.
      *
-     * @return \Mollie\Api\MollieApiClient
+     * @return MollieClient
      * @throws ApiException
      */
     public function getApiClient($apiKey, $needToUpdateApiKey = false)
     {
-
-        global $wp_version;
-
         if (has_filter('mollie_api_key_filter')) {
             $apiKey = apply_filters('mollie_api_key_filter', $apiKey);
         }
@@ -59,18 +77,54 @@ class Api
             );
         }
 
-        if (self::$api_client === null || $needToUpdateApiKey) {
-            $client = new MollieApiClient(null, new WordPressHttpAdapterPicker());
-            $client->setApiKey($apiKey);
-            $client->setApiEndpoint($this->getApiEndpoint());
-            $client->addVersionString('WooCommerce/' . get_option('woocommerce_version', 'Unknown'));
-            $client->addVersionString('WooCommerceSubscriptions/' . get_option('woocommerce_subscriptions_active_version', 'Unknown'));
-            $client->addVersionString('MollieWoo/' . $this->pluginVersion);
+        $endpoint = (string) $this->getApiEndpoint();
+        $cacheKey = hash('sha256', $apiKey . "\0" . $endpoint);
 
-            self::$api_client = $client;
+        if (!isset($this->clients[$cacheKey]) || $needToUpdateApiKey) {
+            $userAgent = implode(' ', [
+                (new WordPressHttpAdapter())->versionString(),
+                'WooCommerce/' . get_option('woocommerce_version', 'Unknown'),
+                'WooCommerceSubscriptions/' . get_option('woocommerce_subscriptions_active_version', 'Unknown'),
+                'MollieWoo/' . $this->pluginVersion,
+            ]);
+
+            $observer = $this->eventLog !== null
+                ? function (array $telemetry): void {
+                    $this->eventLog?->step('mollie.http', $telemetry);
+                }
+                : null;
+
+            $sdk = Client::builder()
+                ->setClient(WordPressHttpAdapter::createGuzzleClient($observer))
+                ->setSecurity(new Security(apiKey: $apiKey))
+                ->setServerUrl($endpoint)
+                ->setCustomUserAgent($userAgent)
+                ->setRetryConfig($this->retryConfig())
+                ->build();
+
+            $this->clients[$cacheKey] = new MollieClient($sdk);
         }
 
-        return self::$api_client;
+        return $this->clients[$cacheKey];
+    }
+
+    /**
+     * Build the default exponential-backoff retry configuration for transient Mollie failures
+     * (429, 5xx, and connection errors), tuned for WordPress checkout request budgets.
+     */
+    protected function retryConfig(): RetryConfig
+    {
+        $default = new RetryConfigBackoff(
+            initialIntervalMs: 500,
+            maxIntervalMs: 2500,
+            exponent: 2,
+            maxElapsedTimeMs: 5000,
+            retryConnectionErrors: true
+        );
+
+        $filtered = apply_filters($this->pluginId . '_sdk_retry_config', $default);
+
+        return $filtered instanceof RetryConfig ? $filtered : $default;
     }
 
     /**
@@ -79,7 +133,7 @@ class Api
      */
     public function getApiEndpoint()
     {
-        return apply_filters($this->pluginId . '_api_endpoint', \Mollie\Api\MollieApiClient::API_ENDPOINT);
+        return apply_filters($this->pluginId . '_api_endpoint', Client::SERVERS[0]);
     }
 
     public function isMollieOutageException(ApiException $e): bool

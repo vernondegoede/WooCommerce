@@ -45,7 +45,36 @@ $finders = [
 return [
     'prefix' => 'Mollie', // string|null
     'finders' => $finders,      // list<Finder>
-    'patchers' => [], // list<callable(string $filePath, string $prefix, string $contents): string>
+    'patchers' => [
+        /**
+         * Rewrite quoted Brick\* class-name strings inside mollie/php Utils handlers so
+         * Speakeasy serializer type matching still resolves after Brick\DateTime and Brick\Math
+         * are prefixed into the plugin namespace.
+         */
+        static function (string $filePath, string $prefix, string $contents): string {
+            if (strpos($filePath, 'vendor/mollie/php/src/Utils/') === false) {
+                return $contents;
+            }
+
+            $escapedPrefix = str_replace('\\', '\\\\', $prefix);
+
+            // Double-backslash strings (e.g. '\\Brick\\Math\\BigDecimal', 'Brick\\DateTime\\LocalDate').
+            $contents = (string) preg_replace(
+                "/'(\\\\\\\\)?(Brick\\\\\\\\(?:DateTime|Math)\\\\\\\\[A-Za-z0-9_]+)'/",
+                "'\${1}{$escapedPrefix}\\\\\\\\$2'",
+                $contents
+            );
+
+            // Single-backslash strings (e.g. 'Brick\DateTime\LocalDate', '\Brick\Math\BigInteger').
+            $contents = (string) preg_replace(
+                "/'(\\\\)?(Brick\\\\(?:DateTime|Math)\\\\[A-Za-z0-9_]+)'/",
+                "'\${1}{$prefix}\\\\$2'",
+                $contents
+            );
+
+            return $contents;
+        },
+    ], // list<callable(string $filePath, string $prefix, string $contents): string>
     'exclude-files' => [
         'vendor/symfony/polyfill-php80/Resources/stubs/Stringable.php',
         'inc/functions.php',

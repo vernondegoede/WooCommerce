@@ -22,17 +22,17 @@ use Mollie\WooCommerceTests\TestCase;
  */
 class PlatformFloorTest extends TestCase
 {
-    private const FLOOR = '8.0';
+    private const FLOOR = '8.2';
 
     /**
-     * Scenario: every file that declares a PHP floor declares 8.0
-     *   Given the seven places that declare the PHP floor
+     * Scenario: every file that declares a PHP floor declares 8.2
+     *   Given the places that declare the PHP floor
      *   When each is read
-     *   Then it names 8.0, and none of them still names 7.4
+     *   Then it names 8.2
      *
      * @dataProvider declarationSites
      */
-    public function testDeclaresPhp80AsTheFloorInEveryDeclarationSite(
+    public function testDeclaresPhp82AsTheFloorInEveryDeclarationSite(
         string $file,
         string $pattern,
         string $what
@@ -56,42 +56,42 @@ class PlatformFloorTest extends TestCase
         return [
             'composer.json require' => [
                 'composer.json',
-                '/"php"\s*:\s*"\^8\.0"/',
+                '/"php"\s*:\s*"\^8\.2"/',
                 'the version the plugin requires',
             ],
             'composer.json config.platform' => [
                 'composer.json',
-                '/"platform"\s*:\s*\{[^}]*"php"\s*:\s*"8\.0"/s',
+                '/"platform"\s*:\s*\{[^}]*"php"\s*:\s*"8\.2"/s',
                 'the version composer resolves dependencies against',
             ],
             'composer.lock platform-overrides' => [
                 'composer.lock',
-                '/"platform-overrides"\s*:\s*\{[^}]*"php"\s*:\s*"8\.0"/s',
+                '/"platform-overrides"\s*:\s*\{[^}]*"php"\s*:\s*"8\.2"/s',
                 'the lock must be regenerated with the new platform',
             ],
             'the plugin header' => [
                 'mollie-payments-for-woocommerce.php',
-                '/^\s*\*\s*Requires PHP:\s*8\.0\s*$/m',
+                '/^\s*\*\s*Requires PHP:\s*8\.2\s*$/m',
                 'what WordPress checks before activating',
             ],
             'readme.txt' => [
                 'readme.txt',
-                '/^Requires PHP:\s*8\.0\s*$/m',
+                '/^Requires PHP:\s*8\.2\s*$/m',
                 'what wordpress.org shows on the plugin page',
             ],
             'ConstraintsChecker' => [
                 'src/Activation/ConstraintsChecker.php',
-                '/new PhpConstraint\(\s*.8\.0.\s*\)/',
+                '/new PhpConstraint\(\s*.8\.2.\s*\)/',
                 'what refuses activation and shows the merchant why',
             ],
             'the DDEV box' => [
                 '.ddev/config.yaml',
-                '/^php_version:\s*"8\.0"\s*$/m',
+                '/^php_version:\s*"8\.2"\s*$/m',
                 'the version the development box runs',
             ],
             'the CI matrix' => [
                 '.github/workflows/ci.yml',
-                '/php-versions:\s*\[\s*.8\.0./',
+                '/php-versions:\s*\[\s*.8\.2./',
                 'the lowest version CI proves the plugin on',
             ],
         ];

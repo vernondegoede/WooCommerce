@@ -43,12 +43,8 @@ class StoreCustomerMiddleware implements RequestMiddlewareInterface
     public function __invoke(array $requestData, WC_Order $order, string $context, callable $next): array
     {
         $allowCustomer = $this->dataHelper->isMollieCustomerAllowedForOrder($order->get_id());
-        if (!$allowCustomer) {
-            if ($context === 'order') {
-                unset($requestData['payment']['customerId']);
-            } elseif ($context === 'payment') {
-                unset($requestData['customerId']);
-            }
+        if (!$allowCustomer && $context === 'payment') {
+            unset($requestData['customerId']);
         }
         return $next($requestData, $order, $context);
     }

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Mollie\WooCommerceTests\Functional\Shared;
 
 use Mockery;
-use Mollie\Api\Endpoints\CustomerEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\CustomersEndpoint;
+use Mollie\WooCommerce\SDK\Resources\Customer;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerceTests\Functional\HelperMocks;
 use Mollie\WooCommerceTests\TestCase;
@@ -67,7 +68,7 @@ class DataTest extends TestCase
     {
         when('wc_get_orders')->justReturn([]);
 
-        $customerEndpointMock = Mockery::mock(CustomerEndpoint::class);
+        $customerEndpointMock = Mockery::mock(CustomersEndpoint::class);
         $customerEndpointMock->shouldReceive('create')->never();
 
         $apiClientMock = $this->helperMocks->apiClient();
@@ -90,9 +91,10 @@ class DataTest extends TestCase
         when('wc_get_orders')->justReturn([]);
         when('get_userdata')->justReturn($this->makeUserData());
 
-        $mollieCustomer = (object) ['id' => 'cst_new123'];
+        $mollieCustomer = Mockery::mock(Customer::class);
+        $mollieCustomer->id = 'cst_new123';
 
-        $customerEndpointMock = Mockery::mock(CustomerEndpoint::class);
+        $customerEndpointMock = Mockery::mock(CustomersEndpoint::class);
         $customerEndpointMock->shouldReceive('create')->once()->andReturn($mollieCustomer);
 
         $apiClientMock = $this->helperMocks->apiClient();
@@ -116,9 +118,10 @@ class DataTest extends TestCase
         when('apply_filters')->justReturn(true); // simulates Data::isSubscription($orderId) === true
         when('get_userdata')->justReturn($this->makeUserData());
 
-        $mollieCustomer = (object) ['id' => 'cst_new456'];
+        $mollieCustomer = Mockery::mock(Customer::class);
+        $mollieCustomer->id = 'cst_new456';
 
-        $customerEndpointMock = Mockery::mock(CustomerEndpoint::class);
+        $customerEndpointMock = Mockery::mock(CustomersEndpoint::class);
         $customerEndpointMock->shouldReceive('create')->once()->andReturn($mollieCustomer);
 
         $apiClientMock = $this->helperMocks->apiClient();
@@ -145,11 +148,14 @@ class DataTest extends TestCase
         when('wc_get_orders')->justReturn([$subscriptionOrder]);
         when('get_post_meta')->justReturn('cst_existing123');
 
-        $customerEndpointMock = Mockery::mock(CustomerEndpoint::class);
+        $existingCustomer = Mockery::mock(Customer::class);
+        $existingCustomer->id = 'cst_existing123';
+
+        $customerEndpointMock = Mockery::mock(CustomersEndpoint::class);
         $customerEndpointMock->shouldReceive('get')
             ->with('cst_existing123')
             ->once()
-            ->andReturn((object) ['id' => 'cst_existing123']);
+            ->andReturn($existingCustomer);
         $customerEndpointMock->shouldReceive('create')->never();
 
         $apiClientMock = $this->helperMocks->apiClient();

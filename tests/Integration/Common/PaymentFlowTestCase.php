@@ -3,7 +3,7 @@
 namespace Mollie\WooCommerceTests\Integration\Common;
 
 use Mockery;
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\Payment\PaymentProcessor;
 use Mollie\WooCommerceTests\Integration\API\Traits\APIMockTrait;
 use Mollie\WooCommerceTests\Integration\Common\Traits\IsolatesSiteState;

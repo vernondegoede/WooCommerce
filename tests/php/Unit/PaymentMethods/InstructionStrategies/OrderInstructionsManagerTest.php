@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mollie\WooCommerceTests\Unit\PaymentMethods\InstructionStrategies;
 
 use Mockery;
-use Mollie\Api\Resources\Payment as MollieApiPayment;
+use Mollie\WooCommerce\SDK\Resources\Payment as MollieApiPayment;
 use Mollie\WooCommerce\PaymentMethods\InstructionStrategies\OrderInstructionsManager;
 use Mollie\WooCommerceTests\TestCase;
 use ReflectionProperty;

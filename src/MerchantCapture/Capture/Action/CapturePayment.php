@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\MerchantCapture\Capture\Action;
 
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\MerchantCapture\ManualCaptureStatus;
 use Mollie\WooCommerce\MerchantCapture\MerchantCaptureModule;
 

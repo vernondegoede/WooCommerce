@@ -6,9 +6,7 @@ namespace Mollie\WooCommerce\Subscription;
 
 use DateInterval;
 use DateTime;
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\Resources\Payment;
-use Mollie\Api\Types\SequenceType;
+use Mollie\Api\Models\Components\SequenceType;
 use Mollie\WooCommerce\Notice\NoticeInterface;
 use Mollie\WooCommerce\Payment\MollieObject;
 use Mollie\WooCommerce\Payment\MollieOrderService;
@@ -17,7 +15,9 @@ use Mollie\WooCommerce\Payment\Webhooks\WebhookSecret;
 use Mollie\WooCommerce\PaymentMethods\InstructionStrategies\OrderInstructionsManager;
 use Mollie\WooCommerce\PaymentMethods\PaymentMethodI;
 use Mollie\WooCommerce\SDK\Api;
+use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\SDK\HttpResponse;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerce\Shared\Data;
 use Psr\Log\LoggerInterface as Logger;
@@ -178,7 +178,7 @@ class MollieSepaRecurringGatewayHandler extends MollieSubscriptionGatewayHandler
         if (
             $this->dataService->isWcSubscription($orderId)
             && isset($payment->sequenceType)
-            && $payment->sequenceType === SequenceType::SEQUENCETYPE_RECURRING
+            && $payment->sequenceType === SequenceType::Recurring->value
         ) {
             $payment_method_title = $this->getPaymentMethodTitle($payment);
 

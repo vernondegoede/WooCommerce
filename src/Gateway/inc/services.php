@@ -13,8 +13,6 @@ use Mollie\WooCommerce\Buttons\PayPalButton\PayPalButtonHandler;
 use Mollie\WooCommerce\Buttons\PayPalButton\PayPalExpressButton;
 use Mollie\WooCommerce\Gateway\DeprecatedGatewayBuilder;
 use Mollie\WooCommerce\Gateway\GatewayModule;
-use Mollie\WooCommerce\Gateway\Refund\OrderItemsRefunder;
-use Mollie\WooCommerce\Gateway\Refund\RefundLineItemsBuilder;
 use Mollie\WooCommerce\Gateway\Refund\RefundProcessor;
 use Mollie\WooCommerce\Gateway\Surcharge;
 use Mollie\WooCommerce\Log\EventLog;
@@ -135,33 +133,12 @@ return static function (): array {
                     return $method['id'] !== Constants::BILLINK;
                 });
             }
-            $settings = $container->get('settings.settings_helper');
-            assert($settings instanceof Settings);
-            if ($settings->isOrderApiSetting()) {
-                $paymentApiOnlyMethods = [Constants::WERO, Constants::BILLINK];
-                $availablePaymentMethods = array_filter($availablePaymentMethods, static function ($method) use ($paymentApiOnlyMethods) {
-                    return !in_array($method['id'], $paymentApiOnlyMethods, true);
-                });
-            }
             return $availablePaymentMethods;
         },
         IconFactory::class => static function (ContainerInterface $container): IconFactory {
             $pluginUrl = $container->get('shared.plugin_url');
             $pluginPath = $container->get('shared.plugin_path');
             return new IconFactory($pluginUrl, $pluginPath);
-        },
-        RefundLineItemsBuilder::class => static function (ContainerInterface $container): RefundLineItemsBuilder {
-            $data = $container->get('settings.data_helper');
-            return new RefundLineItemsBuilder($data);
-        },
-        OrderItemsRefunder::class => static function (ContainerInterface $container): OrderItemsRefunder {
-            $data = $container->get('settings.data_helper');
-            $refundLineItemsBuilder = $container->get(RefundLineItemsBuilder::class);
-            $apiHelper = $container->get('SDK.api_helper');
-            $apiKey = $container->get('settings.settings_helper')->getApiKey();
-            $orderEndpoint = $apiHelper->getApiClient($apiKey)->orders;
-
-            return new OrderItemsRefunder($refundLineItemsBuilder, $data, $orderEndpoint);
         },
         PaymentProcessor::class => static function (ContainerInterface $container): PaymentProcessor {
             $logger = $container->get(Logger::class);
@@ -276,15 +253,11 @@ return static function (): array {
             };
         },
         'gateway.isBillieEnabled' => static function (ContainerInterface $container): bool {
-            $settings = $container->get('settings.settings_helper');
-            assert($settings instanceof Settings);
-            $isSettingsOrderApi = $settings->isOrderApiSetting();
             $billie = isset($container->get('gateway.paymentMethods')['billie']) ? $container->get('gateway.paymentMethods')['billie'] : null;
-            $isBillieEnabled = false;
             if ($billie instanceof PaymentMethodI) {
-                $isBillieEnabled = $billie->getProperty('enabled') === 'yes';
+                return $billie->getProperty('enabled') === 'yes';
             }
-            return $isSettingsOrderApi && $isBillieEnabled;
+            return false;
         },
         'payment_request_validators' => static function (ContainerInterface $container): callable {
             return static function (string $gatewayId) use ($container): callable {

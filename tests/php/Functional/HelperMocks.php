@@ -5,22 +5,19 @@ namespace Mollie\WooCommerceTests\Functional;
 
 
 use Inpsyde\PaymentGateway\PaymentGateway;
-use Mollie\Api\MollieApiClient;
 use Mollie\WooCommerce\Gateway\MolliePaymentGatewayHandler;
 use Mollie\WooCommerce\Notice\AdminNotice;
-use Mollie\WooCommerce\Payment\MollieOrder;
 use Mollie\WooCommerce\Payment\MollieOrderService;
 use Mollie\WooCommerce\Payment\MolliePayment;
 use Mollie\WooCommerce\Payment\Request\RequestFactory;
 use Mollie\WooCommerce\PaymentMethods\InstructionStrategies\OrderInstructionsManager;
-use Mollie\WooCommerce\Gateway\Refund\OrderItemsRefunder;
-use Mollie\WooCommerce\Payment\LineItems\OrderLines;
 use Mollie\WooCommerce\Payment\MollieObject;
 use Mollie\WooCommerce\Payment\PaymentFactory;
 use Mollie\WooCommerce\Payment\PaymentProcessor;
 use Mollie\WooCommerce\PaymentMethods\Ideal;
 use Mollie\WooCommerce\SDK\Api;
 use Mollie\WooCommerce\SDK\HttpResponse;
+use Mollie\WooCommerce\SDK\MollieClient;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerce\Shared\Data;
 use Mollie\WooCommerceTests\Stubs\Status;
@@ -66,20 +63,11 @@ class HelperMocks extends TestCase
     public function paymentFactory(){
         return new PaymentFactory(
             function(){
-                return $this->mollieOrderMock();
-            },
-            function(){
                 return $this->molliePaymentMock();
             }
         );
     }
 
-    public function mollieOrderMock()
-    {
-        return $this->getMockBuilder(MollieOrder::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-    }
     public function molliePaymentMock()
     {
         return $this->getMockBuilder(MolliePayment::class)
@@ -121,19 +109,6 @@ class HelperMocks extends TestCase
         );
     }
 
-    public function orderItemsRefunder()
-    {
-        return $this->getMockBuilder(OrderItemsRefunder::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-    }
-    public function orderLines($apiClientMock){
-        return new OrderLines(
-            $this->dataHelper($apiClientMock),
-            $this->pluginId()
-        );
-    }
-
     public function loggerMock()
     {
         return new emptyLogger();
@@ -153,7 +128,7 @@ class HelperMocks extends TestCase
     }
 
     public function apiClient(){
-        return $this->getMockBuilder(MollieApiClient::class)
+        return $this->getMockBuilder(MollieClient::class)
             ->disableOriginalConstructor()
             ->getMock();
     }

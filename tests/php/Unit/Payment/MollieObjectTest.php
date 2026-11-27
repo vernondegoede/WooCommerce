@@ -5,16 +5,14 @@ declare(strict_types=1);
 namespace Mollie\WooCommerceTests\Unit\Payment;
 
 use Mockery;
-use Mollie\Api\Endpoints\OrderEndpoint;
-use Mollie\Api\Endpoints\PaymentEndpoint;
-use Mollie\Api\Exceptions\ApiException;
-use Mollie\Api\MollieApiClient;
-use Mollie\Api\Resources\Order as MollieApiOrder;
-use Mollie\Api\Resources\Payment as MollieApiPayment;
 use Mollie\WooCommerce\Payment\MollieObject;
 use Mollie\WooCommerce\Payment\PaymentFactory;
 use Mollie\WooCommerce\Payment\Request\RequestFactory;
 use Mollie\WooCommerce\SDK\Api;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Endpoints\PaymentsEndpoint;
+use Mollie\WooCommerce\SDK\MollieClient;
+use Mollie\WooCommerce\SDK\Resources\Payment as MollieApiPayment;
 use Mollie\WooCommerce\Settings\Settings;
 use Mollie\WooCommerceTests\TestCase;
 use Psr\Log\LoggerInterface;
@@ -37,14 +35,11 @@ class MollieObjectTest extends TestCase
     /** @var Api&\Mockery\MockInterface */
     private $apiHelper;
 
-    /** @var MollieApiClient */
+    /** @var MollieClient */
     private $apiClient;
 
     /** @var \Mockery\MockInterface */
     private $paymentEndpoint;
-
-    /** @var \Mockery\MockInterface */
-    private $orderEndpoint;
 
     private MollieObject $sut;
 
@@ -57,16 +52,14 @@ class MollieObjectTest extends TestCase
         $this->logger          = Mockery::mock(LoggerInterface::class);
         $this->settings        = Mockery::mock(Settings::class);
         $this->apiHelper       = Mockery::mock(Api::class);
-        $this->paymentEndpoint = Mockery::mock(PaymentEndpoint::class);
-        $this->orderEndpoint   = Mockery::mock(OrderEndpoint::class);
+        $this->paymentEndpoint = Mockery::mock(PaymentsEndpoint::class);
 
         $this->logger->shouldReceive('debug')->zeroOrMoreTimes();
         $this->settings->shouldReceive('isTestModeEnabled')->andReturn(false)->byDefault();
         $this->settings->shouldReceive('getApiKey')->andReturn('test_api_key')->byDefault();
 
-        $this->apiClient           = $this->createMock(MollieApiClient::class);
+        $this->apiClient           = $this->createMock(MollieClient::class);
         $this->apiClient->payments = $this->paymentEndpoint;
-        $this->apiClient->orders   = $this->orderEndpoint;
 
         $this->apiHelper
             ->shouldReceive('getApiClient')
@@ -89,16 +82,11 @@ class MollieObjectTest extends TestCase
 
     private function resetStaticCaches(): void
     {
-        foreach (['paymentObjectCache', 'orderObjectCache'] as $property) {
-            try {
-                $ref = new ReflectionProperty(MollieObject::class, $property);
-                if (PHP_VERSION_ID < 80100) {
-                    $ref->setAccessible(true);
-                }
-                $ref->setValue(null, []);
-            } catch (ReflectionException $e) {
-                // Property does not exist yet — phase 03 will add it.
-            }
+        try {
+            $ref = new ReflectionProperty(MollieObject::class, 'paymentObjectCache');
+            $ref->setValue(null, []);
+        } catch (ReflectionException $e) {
+            // Ignore if absent
         }
     }
 
@@ -109,13 +97,6 @@ class MollieObjectTest extends TestCase
         return $payment;
     }
 
-    private function makeOrder(string $id = 'ord_test123'): MollieApiOrder
-    {
-        $order     = Mockery::mock(MollieApiOrder::class);
-        $order->id = $id;
-        return $order;
-    }
-
     /**
      * @scenario Within a single PHP request, calling getPaymentObjectPayment with the same
      *           payment_id and use_cache=true more than once returns the result cached from
@@ -124,7 +105,6 @@ class MollieObjectTest extends TestCase
      */
     public function test_cache_deduplicates_repeated_calls_for_same_payment_id(): void
     {
-        // Arrange
         $paymentId = 'tr_cache_test';
         $payment   = $this->makePayment($paymentId);
         $this->paymentEndpoint
@@ -133,11 +113,9 @@ class MollieObjectTest extends TestCase
             ->once()
             ->andReturn($payment);
 
-        // When
         $first  = $this->sut->getPaymentObjectPayment($paymentId, false, true);
         $second = $this->sut->getPaymentObjectPayment($paymentId, false, true);
 
-        // Then
         $this->assertSame($payment, $first);
         $this->assertSame($payment, $second);
     }
@@ -150,7 +128,6 @@ class MollieObjectTest extends TestCase
      */
     public function test_use_cache_false_bypasses_cache_and_updates_it(): void
     {
-        // Arrange
         $paymentId   = 'tr_bypass_test';
         $firstResult = $this->makePayment($paymentId);
         $freshResult = $this->makePayment($paymentId);
@@ -160,12 +137,10 @@ class MollieObjectTest extends TestCase
             ->twice()
             ->andReturn($firstResult, $freshResult);
 
-        // When — prime cache, then force-refresh with use_cache=false
         $this->sut->getPaymentObjectPayment($paymentId, false, true);
         $fromBypass = $this->sut->getPaymentObjectPayment($paymentId, false, false);
         $fromCache  = $this->sut->getPaymentObjectPayment($paymentId, false, true);
 
-        // Then — bypass returned fresh value; cached call also got the updated fresh value
         $this->assertSame($freshResult, $fromBypass);
         $this->assertSame($freshResult, $fromCache);
     }
@@ -178,7 +153,6 @@ class MollieObjectTest extends TestCase
      */
     public function test_null_is_cached_when_api_throws(): void
     {
-        // Arrange
         $paymentId = 'tr_error_test';
         $this->paymentEndpoint
             ->shouldReceive('get')
@@ -186,37 +160,10 @@ class MollieObjectTest extends TestCase
             ->once()
             ->andThrow(new ApiException('Connection error'));
 
-        // When
         $first  = $this->sut->getPaymentObjectPayment($paymentId, false, true);
         $second = $this->sut->getPaymentObjectPayment($paymentId, false, true);
 
-        // Then — both null; Mockery ->once() above asserts the API was not called a second time
         $this->assertNull($first);
         $this->assertNull($second);
-    }
-
-    /**
-     * @scenario getPaymentObjectOrder deduplicates calls for the same order_id using its own
-     *           static cache, independent of the payment cache.
-     * @covers \Mollie\WooCommerce\Payment\MollieObject::getPaymentObjectOrder
-     */
-    public function test_get_payment_object_order_applies_same_caching(): void
-    {
-        // Arrange
-        $orderId = 'ord_cache_test';
-        $order   = $this->makeOrder($orderId);
-        $this->orderEndpoint
-            ->shouldReceive('get')
-            ->with($orderId, ['embed' => 'payments'])
-            ->once()
-            ->andReturn($order);
-
-        // When
-        $first  = $this->sut->getPaymentObjectOrder($orderId, false, true);
-        $second = $this->sut->getPaymentObjectOrder($orderId, false, true);
-
-        // Then
-        $this->assertSame($order, $first);
-        $this->assertSame($order, $second);
     }
 }

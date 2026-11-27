@@ -108,7 +108,7 @@ class AppleAjaxRequests
                 $validationUrl,
                 $apiKey
             );
-        } catch (\Mollie\Api\Exceptions\ApiException $apiException) {
+        } catch (\Mollie\WooCommerce\SDK\ApiException $apiException) {
             update_option('mollie_wc_applepay_validated', 'no');
             wp_send_json_error(
                 $apiException->getMessage()
@@ -202,7 +202,7 @@ class AppleAjaxRequests
      * and the url to redirect the user
      *
      * @throws WC_Data_Exception
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @throws \Mollie\WooCommerce\SDK\ApiException
      */
     public function createWcOrder()
     {
@@ -236,7 +236,7 @@ class AppleAjaxRequests
      * and the url to redirect the user
      *
      * @throws WC_Data_Exception
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @throws \Mollie\WooCommerce\SDK\ApiException
      */
     public function createWcOrderFromCart()
     {
@@ -647,7 +647,7 @@ class AppleAjaxRequests
      * @param        $validationUrl
      *
      * @return false|string
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @throws \Mollie\WooCommerce\SDK\ApiException
      */
     protected function validationApiWalletsEndpointCall(
         $domain,

@@ -8,11 +8,7 @@ namespace Mollie\WooCommerce\Shared;
 
 use Inpsyde\Modularity\Module\ModuleClassNameIdTrait;
 use Inpsyde\Modularity\Module\ServiceModule;
-use Inpsyde\Modularity\Package;
-use Mollie\Api\CompatibilityChecker;
-use Mollie\WooCommerce\SDK\Api;
 use Psr\Container\ContainerInterface;
-use Psr\Log\LoggerInterface as Logger;
 
 class SharedModule implements ServiceModule
 {
@@ -48,7 +44,7 @@ class SharedModule implements ServiceModule
             },
             'shared.status_helper' => static function (ContainerInterface $container): Status {
                 $pluginTitle = $container->get('shared.plugin_title');
-                return new Status(new CompatibilityChecker(), $pluginTitle);
+                return new Status($pluginTitle);
             },
             'shared.set_http_response_code' => static function ($status_code): void {
                 if (PHP_SAPI !== 'cli' && !headers_sent()) {

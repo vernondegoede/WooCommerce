@@ -6,8 +6,10 @@ namespace Mollie\WooCommerce\Shared;
 
 use Exception;
 use InvalidArgumentException;
-use Mollie\Api\Resources\Method;
+use Mollie\Api\Models\Components\SequenceType;
 use Mollie\WooCommerce\SDK\Api;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\Settings\Settings;
 use Psr\Log\LoggerInterface as Logger;
 use WC_Customer;
@@ -24,17 +26,17 @@ class Data
     const TRANSIENT_PREFIX = 'mollie-wc-';
 
     /**
-     * @var \Mollie\Api\Resources\Method[]|\Mollie\Api\Resources\MethodCollection|array
+     * @var array<int, array<string, mixed>>
      */
     protected static $regular_api_methods = [];
 
     /**
-     * @var \Mollie\Api\Resources\Method[]|\Mollie\Api\Resources\MethodCollection|array
+     * @var array<int, array<string, mixed>>
      */
     protected static $recurring_api_methods = [];
 
     /**
-     * @var \Mollie\Api\Resources\MethodCollection[]
+     * @var array<string, mixed>
      */
     protected static $method_issuers = [];
 
@@ -181,13 +183,13 @@ class Data
      * @param string   $apiKey (default: false)
      * @param bool   $useCache (default: true)
      *
-     * @return \Mollie\Api\Resources\Payment|null
+     * @return Payment|null
      */
-    public function getPayment($paymentId, $apiKey, $useCache = true): ?\Mollie\Api\Resources\Payment
+    public function getPayment($paymentId, $apiKey, $useCache = true): ?Payment
     {
         try {
             return $this->api_helper->getApiClient($apiKey)->payments->get($paymentId);
-        } catch (\Mollie\Api\Exceptions\ApiException $apiException) {
+        } catch (ApiException $apiException) {
             $this->logger->debug(__FUNCTION__ . sprintf(': Could not load payment %s (', $paymentId) . "): " . $apiException->getMessage() . ' (' . get_class($apiException) . ')');
         }
 
@@ -198,7 +200,7 @@ class Data
      * @param bool $testMode
      * @param bool $useCache
      *
-     * @return array|mixed|\Mollie\Api\Resources\Method[]|\Mollie\Api\Resources\MethodCollection
+     * @return array|mixed
      */
     public function getAllPaymentMethods($apiKey, $testMode = false, $useCache = true)
     {
@@ -314,8 +316,8 @@ class Data
             ],
             'locale' => $paymentLocale,
             'billingCountry' => $billingCountry,
-            'sequenceType' => \Mollie\Api\Types\SequenceType::SEQUENCETYPE_ONEOFF,
-            'resource' => 'orders',
+            'sequenceType' => SequenceType::Oneoff->value,
+            'resource' => 'payments',
         ];
     }
 
@@ -323,7 +325,7 @@ class Data
      * @param bool $testMode
      * @param bool $useCache
      *
-     * @return array|mixed|\Mollie\Api\Resources\Method[]|\Mollie\Api\Resources\MethodCollection
+     * @return array|mixed
      */
     public function getRegularPaymentMethods($apiKey, $testMode = false, $useCache = true)
     {
@@ -380,7 +382,7 @@ class Data
 
             // No cache exists, call the API and cache the result
             if ($methods === false) {
-                $filters['resource'] = 'orders';
+                $filters['resource'] = 'payments';
                 $filters['includeWallets'] = 'applepay';
                 $filters['include'] = 'issuers';
                 if (!$apiKey) {
@@ -405,7 +407,7 @@ class Data
             }
 
             return $methods;
-        } catch (\Mollie\Api\Exceptions\ApiException $e) {
+        } catch (ApiException $e) {
             /**
              * Cache the result for a short period
              * to prevent hammering the API with requests that are likely to fail again
@@ -422,7 +424,7 @@ class Data
     /**
      * @param      $method
      *
-     * @return mixed|\Mollie\Api\Resources\Method|null
+     * @return mixed|null
      */
     public function getPaymentMethod($method)
     {
@@ -462,9 +464,8 @@ class Data
 
         try {
             $method = $this->getMethodWithIssuersById($methodId, $apiKey);
-            is_object($method) && $method = get_object_vars($method);
-            $issuers = isset($method['issuers']) && is_array($method['issuers']) ? $method['issuers'] : [];
-        } catch (\Mollie\Api\Exceptions\ApiException $e) {
+            $issuers = is_array($method) && isset($method['issuers']) && is_array($method['issuers']) ? $method['issuers'] : [];
+        } catch (ApiException $e) {
             $this->logger->debug(__FUNCTION__ . ": Could not load " . $methodId . " issuers (" . ( $testMode ? 'test' : 'live' ) . "): " . $e->getMessage() . ' (' . get_class($e) . ')');
             $issuers = [];
         }
@@ -478,8 +479,8 @@ class Data
      *
      * @param string $methodId
      * @param string $apiKey
-     * @return bool|Method
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @return bool|array
+     * @throws ApiException
      */
     public function getMethodWithIssuersById($methodId, $apiKey)
     {
@@ -503,7 +504,7 @@ class Data
     /**
      *
      * @param string $methodId
-     * @return false|Method
+     * @return false|array
      */
     public function getCachedMethodById(string $methodId)
     {
@@ -599,7 +600,7 @@ class Data
         if (! empty($customerId)) {
             try {
                 $this->api_helper->getApiClient($apiKey)->customers->get($customerId);
-            } catch (\Mollie\Api\Exceptions\ApiException $e) {
+            } catch (ApiException $e) {
                 $this->logger->debug(__FUNCTION__ . sprintf(': Mollie Customer ID (%s) not valid for user %s on this API key, try to create a new one (', $customerId, $userId) . ( $isTestModeEnabled ? 'test' : 'live' ) . ").");
                 $customerId = '';
             }
@@ -634,7 +635,7 @@ class Data
                 $this->logger->debug(__FUNCTION__ . sprintf(': Created a Mollie Customer (%s) for WordPress user with ID %s (', $customerId, $userId) . ( $isTestModeEnabled ? 'test' : 'live' ) . ").");
 
                 return $customerId;
-            } catch (\Mollie\Api\Exceptions\ApiException $e) {
+            } catch (ApiException $e) {
                 $this->logger->debug(__FUNCTION__ . sprintf(': Could not create Mollie Customer for WordPress user with ID %s (', $userId) . ( $isTestModeEnabled ? 'test' : 'live' ) . "): " . $e->getMessage() . ' (' . get_class($e) . ')');
             }
         } else {
@@ -773,7 +774,7 @@ class Data
             }
 
             return $methods;
-        } catch (\Mollie\Api\Exceptions\ApiException $e) {
+        } catch (ApiException $e) {
             /**
              * Cache the result for a short period
              * to prevent hammering the API with requests that are likely to fail again

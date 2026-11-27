@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Components;
 
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\Components\Rules\MollieJsLocale;
 use Mollie\WooCommerce\PaymentMethods\PaymentMethodI;
 use Mollie\WooCommerce\Settings\Settings;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Payment\Request\Middleware;
 
-use Mollie\Api\Types\SequenceType;
+use Mollie\Api\Models\Components\SequenceType;
 use WC_Order;
 
 /**
@@ -59,7 +59,7 @@ class CaptureModeMiddleware implements RequestMiddlewareInterface
             $requestData['captureMode'] = $paymentMethod->getProperty('paymentCaptureMode');
         }
 
-        if (!empty($requestData['sequenceType']) && $requestData['sequenceType'] !== SequenceType::SEQUENCETYPE_ONEOFF) {
+        if (!empty($requestData['sequenceType']) && $requestData['sequenceType'] !== SequenceType::Oneoff->value) {
             unset($requestData['captureMode']);
         }
 

@@ -3,7 +3,6 @@
 namespace Mollie\WooCommerceTests\Functional\PayPalButton;
 
 use AjaxRequests;
-use Mollie\Api\Endpoints\OrderEndpoint;
 use Mollie\WooCommerce\Buttons\PayPalButton\PayPalAjaxRequests;
 use Mollie\WooCommerce\Buttons\PayPalButton\PayPalDataObjectHttp;
 use Mollie\WooCommerce\Gateway\Surcharge;

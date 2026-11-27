@@ -75,7 +75,7 @@ class PayPalAjaxRequests
      * and the url to redirect the user
      *
      * @throws WC_Data_Exception
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @throws \Mollie\WooCommerce\SDK\ApiException
      */
     public function createWcOrder()
     {
@@ -134,7 +134,7 @@ class PayPalAjaxRequests
      * and the url to redirect the user
      *
      * @throws WC_Data_Exception
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @throws \Mollie\WooCommerce\SDK\ApiException
      */
     public function createWcOrderFromCart()
     {
@@ -330,7 +330,7 @@ class PayPalAjaxRequests
      * @param int $orderId
      *
      * @return array|string[]
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @throws \Mollie\WooCommerce\SDK\ApiException
      */
     protected function processOrderPayment($orderId)
     {

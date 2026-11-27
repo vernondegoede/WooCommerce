@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Mollie\WooCommerce\Subscription;
 
 use Exception;
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\MollieClient;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\Gateway\MolliePaymentGatewayHandler;
 use Mollie\WooCommerce\Notice\NoticeInterface;
 use Mollie\WooCommerce\Payment\MollieObject;
@@ -480,7 +482,7 @@ class MollieSubscriptionGatewayHandler extends MolliePaymentGatewayHandler
     /**
      * @param WC_Order                            $renewal_order
      * @param                                     $renewal_order_id
-     * @param \Mollie\Api\Resources\Payment        $payment
+     * @param Payment        $payment
      *
      */
     public function updateFirstPaymentMethodToRecurringPaymentMethod($renewal_order, $renewal_order_id, $payment)
@@ -575,7 +577,7 @@ class MollieSubscriptionGatewayHandler extends MolliePaymentGatewayHandler
      * @param $subscription
      *
      * @return mixed
-     * @throws \Mollie\Api\Exceptions\ApiException
+     * @throws ApiException
      */
     public function add_subscription_payment_meta($payment_meta, $subscription, $gateway)
     {
@@ -787,7 +789,7 @@ class MollieSubscriptionGatewayHandler extends MolliePaymentGatewayHandler
     /**
      * @param int $renewal_order_id
      * @param $customer_id
-     * @param \Mollie\Api\MollieApiClient $mollieApiClient
+     * @param MollieClient $mollieApiClient
      * @param $mandateId
      * @param bool $isRenewalMethodDirectDebit
      * @param $data
@@ -798,7 +800,7 @@ class MollieSubscriptionGatewayHandler extends MolliePaymentGatewayHandler
     protected function usePreviousMandate(
         int $renewal_order_id,
         $customer_id,
-        \Mollie\Api\MollieApiClient $mollieApiClient,
+        MollieClient $mollieApiClient,
         $mandateId,
         bool $isRenewalMethodDirectDebit,
         $data,
@@ -822,7 +824,7 @@ class MollieSubscriptionGatewayHandler extends MolliePaymentGatewayHandler
     /**
      * @param int $renewal_order_id
      * @param $customer_id
-     * @param \Mollie\Api\MollieApiClient $mollieApiClient
+     * @param MollieClient $mollieApiClient
      * @param bool $validMandate
      * @param $data
      * @param $renewalOrderMethod
@@ -832,7 +834,7 @@ class MollieSubscriptionGatewayHandler extends MolliePaymentGatewayHandler
     protected function useAnyValidMandate(
         int $renewal_order_id,
         $customer_id,
-        \Mollie\Api\MollieApiClient $mollieApiClient,
+        MollieClient $mollieApiClient,
         bool $validMandate,
         $data,
         $renewalOrderMethod,

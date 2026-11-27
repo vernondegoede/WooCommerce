@@ -33,18 +33,6 @@ class StoreCustomerMiddlewareTest extends TestCase
 
     /**
      * @test
-     * @scenario When a Mollie Customer is not allowed for the order (setting disabled and not
-     *           a subscription), customerId is stripped from the 'order' context payload.
-     */
-    public function stripsCustomerIdFromOrderContextWhenNotAllowed(): void
-    {
-        $result = $this->callMiddleware(false, ['payment' => ['customerId' => 'cst_123']], 'order');
-
-        $this->assertArrayNotHasKey('customerId', $result['payment']);
-    }
-
-    /**
-     * @test
      * @scenario When a Mollie Customer is not allowed for the order, customerId is stripped
      *           from the 'payment' context payload.
      */

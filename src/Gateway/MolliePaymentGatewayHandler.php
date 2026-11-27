@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Mollie\WooCommerce\Gateway;
 
 use InvalidArgumentException;
-use Mollie\Api\Resources\Payment;
+use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\Notice\NoticeInterface;
 use Mollie\WooCommerce\Payment\MollieObject;
 use Mollie\WooCommerce\Payment\MollieOrderService;

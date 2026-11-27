@@ -9,12 +9,7 @@ namespace Mollie\WooCommerce\SDK;
 use Inpsyde\Modularity\Module\ExecutableModule;
 use Inpsyde\Modularity\Module\ModuleClassNameIdTrait;
 use Inpsyde\Modularity\Module\ServiceModule;
-use Mollie\Api\Resources\Refund;
-use Mollie\WooCommerce\Gateway\AbstractGateway;
 use Mollie\WooCommerce\Log\EventLog;
-use Mollie\WooCommerce\Notice\AdminNotice;
-use Mollie\WooCommerce\Plugin;
-use Mollie\WooCommerce\SDK\HttpResponse;
 use Mollie\WooCommerce\Settings\Settings;
 use Psr\Container\ContainerInterface;
 
@@ -28,7 +23,10 @@ class SDKModule implements ExecutableModule, ServiceModule
             'SDK.api_helper' => static function (ContainerInterface $container): Api {
                 $pluginVersion = $container->get('shared.plugin_version');
                 $pluginId = $container->get('shared.plugin_id');
-                return new Api($pluginVersion, $pluginId);
+                $eventLog = $container->has(EventLog::class) ? $container->get(EventLog::class) : null;
+                assert($eventLog === null || $eventLog instanceof EventLog);
+
+                return new Api($pluginVersion, $pluginId, $eventLog);
             },
             'SDK.HttpResponse' => static function (): HttpResponse {
                 return new HttpResponse();

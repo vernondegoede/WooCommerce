@@ -4,27 +4,23 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerceTests\Integration\API\Mocks;
 
-use Mollie\Api\Endpoints\ChargebackEndpoint;
-use Mollie\Api\Endpoints\CustomerEndpoint;
-use Mollie\Api\Endpoints\InvoiceEndpoint;
-use Mollie\Api\Endpoints\MandateEndpoint;
-use Mollie\Api\Endpoints\MethodEndpoint;
-use Mollie\Api\Endpoints\OrderEndpoint;
-use Mollie\Api\Endpoints\OrganizationEndpoint;
-use Mollie\Api\Endpoints\PaymentEndpoint;
-use Mollie\Api\Endpoints\PermissionEndpoint;
-use Mollie\Api\Endpoints\ProfileEndpoint;
-use Mollie\Api\Endpoints\RefundEndpoint;
-use Mollie\Api\Endpoints\SettlementsEndpoint;
-use Mollie\Api\Endpoints\SubscriptionEndpoint;
 use Mollie\WooCommerce\SDK\Api;
-use Mollie\Api\MollieApiClient;
+use Mollie\WooCommerce\SDK\ApiException;
+use Mollie\WooCommerce\SDK\Endpoints\CapturesEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\CustomersEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\MandatesEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\MethodsEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\PaymentsEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\ProfilesEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\SessionsEndpoint;
+use Mollie\WooCommerce\SDK\Endpoints\WalletsEndpoint;
+use Mollie\WooCommerce\SDK\MollieClient;
 use Mockery;
 
 class MockedApi extends Api
 {
     /**
-     * @var \Mockery\MockInterface|\Mollie\Api\MollieApiClient
+     * @var \Mockery\MockInterface|MollieClient
      */
     protected $mockedApiClient;
 
@@ -44,14 +40,14 @@ class MockedApi extends Api
      *
      * @param string $apiKey
      * @param bool $needToUpdateApiKey
-     * @return \Mockery\MockInterface|\Mollie\Api\MollieApiClient
+     * @return \Mockery\MockInterface|MollieClient
      */
-    public function getApiClient($apiKey, $needToUpdateApiKey = false)
+    public function getApiClient($apiKey, $needToUpdateApiKey = false): MollieClient
     {
         if (empty($apiKey)) {
-            throw new \Mollie\Api\Exceptions\ApiException('No API key provided. Please set your Mollie API keys below.');
+            throw new ApiException('No API key provided. Please set your Mollie API keys below.');
         } elseif (!preg_match('#^(live|test)_\w{30,}$#', $apiKey)) {
-            throw new \Mollie\Api\Exceptions\ApiException('Invalid API key format.');
+            throw new ApiException('Invalid API key format.');
         }
 
         return $this->mockedApiClient;
@@ -62,10 +58,10 @@ class MockedApi extends Api
      */
     protected function setupMockedApiClient(): void
     {
-        $this->mockedApiClient = Mockery::mock(MollieApiClient::class);
+        $this->mockedApiClient = Mockery::mock(MollieClient::class);
 
-        $this->mockedApiClient->payments = Mockery::mock(PaymentEndpoint::class);
-        $this->mockedApiClient->methods = Mockery::mock(MethodEndpoint::class);
+        $this->mockedApiClient->payments = Mockery::mock(PaymentsEndpoint::class);
+        $this->mockedApiClient->methods = Mockery::mock(MethodsEndpoint::class);
         // The gateway/module bootstrap resolves available payment methods
         // (Data::getAllAvailablePaymentMethods -> methods->allAvailable()) to decide which Mollie
         // gateways to register. Return a minimal set by default so booting the module in a test both
@@ -74,17 +70,12 @@ class MockedApi extends Api
         $this->mockedApiClient->methods->shouldReceive('allAvailable')
             ->andReturn($this->defaultAvailableMethods())
             ->byDefault();
-        $this->mockedApiClient->customers = Mockery::mock(CustomerEndpoint::class);
-        $this->mockedApiClient->orders = Mockery::mock(OrderEndpoint::class);
-        $this->mockedApiClient->refunds = Mockery::mock(RefundEndpoint::class);
-        $this->mockedApiClient->subscriptions = Mockery::mock(SubscriptionEndpoint::class);
-        $this->mockedApiClient->mandates = Mockery::mock(MandateEndpoint::class);
-        $this->mockedApiClient->profiles = Mockery::mock(ProfileEndpoint::class);
-        $this->mockedApiClient->organizations = Mockery::mock(OrganizationEndpoint::class);
-        $this->mockedApiClient->permissions = Mockery::mock(PermissionEndpoint::class);
-        $this->mockedApiClient->invoices = Mockery::mock(InvoiceEndpoint::class);
-        $this->mockedApiClient->settlements = Mockery::mock(SettlementsEndpoint::class);
-        $this->mockedApiClient->chargebacks = Mockery::mock(ChargebackEndpoint::class);
+        $this->mockedApiClient->customers = Mockery::mock(CustomersEndpoint::class);
+        $this->mockedApiClient->paymentCaptures = Mockery::mock(CapturesEndpoint::class);
+        $this->mockedApiClient->mandates = Mockery::mock(MandatesEndpoint::class);
+        $this->mockedApiClient->profiles = Mockery::mock(ProfilesEndpoint::class);
+        $this->mockedApiClient->wallets = Mockery::mock(WalletsEndpoint::class);
+        $this->mockedApiClient->sessions = Mockery::mock(SessionsEndpoint::class);
     }
 
     /**
@@ -320,7 +311,7 @@ class MockedApi extends Api
     /**
      * Get the mocked API client for direct manipulation in tests
      *
-     * @return \Mockery\MockInterface|\Mollie\Api\MollieApiClient
+     * @return \Mockery\MockInterface|MollieClient
      */
     public function getMockedApiClient()
     {

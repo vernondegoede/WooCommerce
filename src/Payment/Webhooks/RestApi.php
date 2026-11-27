@@ -2,7 +2,7 @@
 
 namespace Mollie\WooCommerce\Payment\Webhooks;
 
-use Mollie\Api\Exceptions\ApiException;
+use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\Log\EventLog;
 use Mollie\WooCommerce\Payment\OrderLockTimeout;
 use Mollie\WooCommerce\SDK\MollieCallFailed;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Mollie\WooCommerce\Payment\Request\Middleware;
 
-use Mollie\Api\Types\SequenceType;
+use Mollie\Api\Models\Components\SequenceType;
 use Mollie\WooCommerce\Shared\Data;
 use WC_Order;
 use WC_Payment_Gateway;
@@ -85,10 +85,8 @@ class AddSequenceTypeForSubscriptionsMiddleware implements RequestMiddlewareInte
      */
     private function addSequenceTypeFirst($requestData, $context)
     {
-        if ($context === 'order') {
-            $requestData['payment']['sequenceType'] = SequenceType::SEQUENCETYPE_FIRST;
-        } elseif ($context === 'payment') {
-            $requestData['sequenceType'] = SequenceType::SEQUENCETYPE_FIRST;
+        if ($context === 'payment') {
+            $requestData['sequenceType'] = SequenceType::First->value;
             if (isset($requestData['captureMode'])) {
                 unset($requestData['captureMode']);
             }

@@ -941,6 +941,7 @@ final class FakeMollieApi
             $resource['expiredAt'] = $session['expiresAt'];
         }
         $resource['resource'] = 'session';
+        $resource['profileId'] = $session['profileId'] ?? 'pfl_fake0001';
         // Opaque to the plugin. The browser stub reads the session id back out of it; like the
         // real token it identifies the session and nothing about the merchant account.
         $resource['clientAccessToken'] = self::clientAccessTokenFor($session['id']);

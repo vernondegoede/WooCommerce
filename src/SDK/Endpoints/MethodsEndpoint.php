@@ -8,7 +8,7 @@ use Mollie\Api\Client;
 use Mollie\Api\Models\Components\Amount;
 use Mollie\Api\Models\Components\LineCategories;
 use Mollie\Api\Models\Components\Locale;
-use Mollie\Api\Models\Components\MethodEnum;
+use Mollie\Api\Models\Components\MethodId;
 use Mollie\Api\Models\Components\MethodIncludeWalletsParameter;
 use Mollie\Api\Models\Components\MethodResourceParameter;
 use Mollie\Api\Models\Components\SequenceType;
@@ -132,7 +132,7 @@ class MethodsEndpoint
     public function get(string $methodId, array $parameters = []): stdClass
     {
         try {
-            $methodEnum = MethodEnum::tryFrom($methodId);
+            $methodEnum = MethodId::tryFrom($methodId);
             if ($methodEnum === null) {
                 throw new ApiException(sprintf('Unknown payment method ID "%s".', $methodId), 404);
             }

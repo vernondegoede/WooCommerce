@@ -7,6 +7,8 @@ namespace Mollie\WooCommerce\SDK\Endpoints;
 use Mollie\Api\Client;
 use Mollie\Api\Models\Components\MandateMethod;
 use Mollie\Api\Models\Components\MandateRequest;
+use Mollie\Api\Models\Operations\CreateMandateRequest;
+use Mollie\Api\Models\Operations\GetMandateRequest;
 use Mollie\Api\Models\Operations\ListMandatesRequest;
 use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\SDK\IdempotencyKey;
@@ -49,9 +51,11 @@ class MandatesEndpoint
             );
 
             $response = $this->sdk->mandates->create(
-                customerId: $customerId,
-                body: $body,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                new CreateMandateRequest(
+                    customerId: $customerId,
+                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    body: $body
+                )
             );
 
             if ($response->mandateResponse === null) {
@@ -71,8 +75,10 @@ class MandatesEndpoint
     {
         try {
             $response = $this->sdk->mandates->get(
-                customerId: $customerId,
-                mandateId: $mandateId
+                new GetMandateRequest(
+                    customerId: $customerId,
+                    mandateId: $mandateId
+                )
             );
 
             if ($response->mandateResponse === null) {

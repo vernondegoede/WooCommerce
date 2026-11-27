@@ -102,7 +102,7 @@ class Api
                 ->setRetryConfig($this->retryConfig());
 
             $sdk = $builder->build();
-            // mollie/php v0.1.0-alpha.0 emits SDKConfiguration::$userAgent as the User-Agent header
+            // mollie/php emits SDKConfiguration::$userAgent as the User-Agent header
             // and does not yet wire globals['parameters']['header']['customUserAgent'] into requests.
             $sdk->sdkConfiguration->userAgent = trim($userAgent . ' ' . $sdk->sdkConfiguration->userAgent);
 

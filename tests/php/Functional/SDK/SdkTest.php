@@ -332,9 +332,18 @@ class SdkTest extends TestCase
                 json_encode([
                     'resource' => 'session',
                     'id' => 'sess_retry123',
+                    'mode' => 'test',
                     'status' => 'open',
                     'clientAccessToken' => 'tok_abc',
+                    'amount' => ['currency' => 'EUR', 'value' => '10.00'],
+                    'description' => 'Express Checkout',
+                    'redirectUrl' => 'https://example.com/return',
+                    'profileId' => 'pfl_123',
                     'createdAt' => '2026-01-01T00:00:00+00:00',
+                    'shipping' => ['callbackUrl' => 'https://example.com/shipping'],
+                    '_links' => [
+                        'self' => ['href' => 'https://api.mollie.com/v2/sessions/sess_retry123', 'type' => 'application/hal+json'],
+                    ],
                 ], JSON_THROW_ON_ERROR)
             ),
         ]);
@@ -371,14 +380,28 @@ class SdkTest extends TestCase
         $session = $client->sessions->create([
             'amount' => ['currency' => 'EUR', 'value' => '10.00'],
             'description' => 'Express Checkout',
+            'redirectUrl' => 'https://example.com/return',
+            'lines' => [
+                [
+                    'description' => 'T-Shirt',
+                    'quantity' => 1,
+                    'unitPrice' => ['currency' => 'EUR', 'value' => '10.00'],
+                    'totalAmount' => ['currency' => 'EUR', 'value' => '10.00'],
+                ],
+            ],
+            'requiredCustomerDetails' => ['shipping-address'],
             'shipping' => ['callbackUrl' => 'https://example.com/shipping'],
         ], 'sess-idem-key-1');
 
         self::assertSame('sess_retry123', $session->id);
+        self::assertSame('https://example.com/shipping', $session->shipping->callbackUrl);
         self::assertCount(3, $history);
         self::assertSame('sess-idem-key-1', $history[1]['request']->getHeaderLine('idempotency-key'));
         self::assertSame('sess-idem-key-1', $history[2]['request']->getHeaderLine('idempotency-key'));
         self::assertStringContainsString('MollieWoo/9.0.0-dev', $history[2]['request']->getHeaderLine('user-agent'));
+        $sentSessionPayload = json_decode((string) $history[2]['request']->getBody(), true);
+        self::assertSame('https://example.com/shipping', $sentSessionPayload['shipping']['callbackUrl'] ?? null);
+        self::assertSame(['shipping-address'], $sentSessionPayload['requiredCustomerDetails'] ?? null);
     }
 
     /**

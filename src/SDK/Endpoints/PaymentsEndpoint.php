@@ -8,7 +8,12 @@ use Mollie\Api\Client;
 use Mollie\Api\Models\Components\Amount;
 use Mollie\Api\Models\Components\PaymentRequest;
 use Mollie\Api\Models\Components\RefundRequest;
+use Mollie\Api\Models\Operations\CancelPaymentRequest;
+use Mollie\Api\Models\Operations\CreatePaymentRequest;
+use Mollie\Api\Models\Operations\CreateRefundRequest;
 use Mollie\Api\Models\Operations\GetPaymentRequest;
+use Mollie\Api\Models\Operations\ReleaseAuthorizationRequest;
+use Mollie\Api\Models\Operations\UpdatePaymentRequest;
 use Mollie\Api\Models\Operations\UpdatePaymentRequestBody;
 use Mollie\WooCommerce\SDK\ApiException;
 use Mollie\WooCommerce\SDK\IdempotencyKey;
@@ -37,9 +42,11 @@ class PaymentsEndpoint
             $include = isset($filters['include']) && is_string($filters['include']) ? $filters['include'] : null;
 
             $response = $this->sdk->payments->create(
-                body: $body,
-                include: $include,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                new CreatePaymentRequest(
+                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    body: $body,
+                    include: $include
+                )
             );
 
             if ($response->paymentResponse === null) {
@@ -84,8 +91,10 @@ class PaymentsEndpoint
     {
         try {
             $response = $this->sdk->payments->cancel(
-                paymentId: $paymentId,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                new CancelPaymentRequest(
+                    paymentId: $paymentId,
+                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                )
             );
 
             if ($response->paymentResponse === null) {
@@ -113,9 +122,11 @@ class PaymentsEndpoint
                     'json'
                 );
             $response = $this->sdk->payments->update(
-                paymentId: $paymentId,
-                body: $body,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                new UpdatePaymentRequest(
+                    paymentId: $paymentId,
+                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    body: $body
+                )
             );
 
             if ($response->paymentResponse === null) {
@@ -153,9 +164,11 @@ class PaymentsEndpoint
             );
 
             $response = $this->sdk->refunds->create(
-                paymentId: $paymentId,
-                body: $refundRequest,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                new CreateRefundRequest(
+                    paymentId: $paymentId,
+                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    body: $refundRequest
+                )
             );
 
             if ($response->refundResponse === null) {
@@ -175,8 +188,10 @@ class PaymentsEndpoint
     {
         try {
             $this->sdk->payments->releaseAuthorization(
-                paymentId: $paymentId,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                new ReleaseAuthorizationRequest(
+                    paymentId: $paymentId,
+                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                )
             );
         } catch (Throwable $throwable) {
             throw ApiException::fromSdkThrowable($throwable);

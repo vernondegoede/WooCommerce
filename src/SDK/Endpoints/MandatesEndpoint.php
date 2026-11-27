@@ -11,7 +11,6 @@ use Mollie\Api\Models\Operations\CreateMandateRequest;
 use Mollie\Api\Models\Operations\GetMandateRequest;
 use Mollie\Api\Models\Operations\ListMandatesRequest;
 use Mollie\WooCommerce\SDK\ApiException;
-use Mollie\WooCommerce\SDK\IdempotencyKey;
 use Mollie\WooCommerce\SDK\Resources\Customer;
 use Mollie\WooCommerce\SDK\Resources\Mandate;
 use Throwable;
@@ -53,7 +52,7 @@ class MandatesEndpoint
             $response = $this->sdk->mandates->create(
                 new CreateMandateRequest(
                     customerId: $customerId,
-                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    idempotencyKey: $idempotencyKey,
                     body: $body
                 )
             );

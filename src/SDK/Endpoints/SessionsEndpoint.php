@@ -7,7 +7,6 @@ namespace Mollie\WooCommerce\SDK\Endpoints;
 use Mollie\Api\Client;
 use Mollie\Api\Models\Components\SessionRequest;
 use Mollie\WooCommerce\SDK\ApiException;
-use Mollie\WooCommerce\SDK\IdempotencyKey;
 use Mollie\WooCommerce\SDK\Resources\Normalizer;
 use stdClass;
 use Throwable;
@@ -38,7 +37,7 @@ class SessionsEndpoint
 
             $response = $this->sdk->checkoutSessions->create(
                 body: $body,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                idempotencyKey: $idempotencyKey
             );
 
             if ($response->sessionResponse === null) {

@@ -10,7 +10,6 @@ use Mollie\Api\Models\Components\CaptureResponse;
 use Mollie\Api\Models\Components\EntityCapture;
 use Mollie\Api\Models\Operations\CreateCaptureRequest;
 use Mollie\WooCommerce\SDK\ApiException;
-use Mollie\WooCommerce\SDK\IdempotencyKey;
 use Throwable;
 
 class CapturesEndpoint
@@ -44,7 +43,7 @@ class CapturesEndpoint
             $response = $this->sdk->captures->create(
                 new CreateCaptureRequest(
                     paymentId: $paymentId,
-                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    idempotencyKey: $idempotencyKey,
                     body: $body
                 )
             );

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e3285f618f5c0e2a558030d93293919b",
+    "content-hash": "8e7b08818b041e837f9b1b31786220fb",
     "packages": [
         {
             "name": "brick/date-time",
@@ -980,16 +980,16 @@
         },
         {
             "name": "mollie/php",
-            "version": "v0.1.0-alpha.1",
+            "version": "v0.1.0-alpha.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mollie/mollie-php-sdk.git",
-                "reference": "6717f95dbc7a0b9b44ba6163f96b353686f674ea"
+                "reference": "6495f092f0f4da8fff6f198f512f1409f9544982"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mollie/mollie-php-sdk/zipball/6717f95dbc7a0b9b44ba6163f96b353686f674ea",
-                "reference": "6717f95dbc7a0b9b44ba6163f96b353686f674ea",
+                "url": "https://api.github.com/repos/mollie/mollie-php-sdk/zipball/6495f092f0f4da8fff6f198f512f1409f9544982",
+                "reference": "6495f092f0f4da8fff6f198f512f1409f9544982",
                 "shasum": ""
             },
             "require": {
@@ -1019,10 +1019,10 @@
             ],
             "support": {
                 "issues": "https://github.com/mollie/mollie-php-sdk/issues",
-                "source": "https://github.com/mollie/mollie-php-sdk/tree/v0.1.0-alpha.1"
+                "source": "https://github.com/mollie/mollie-php-sdk/tree/v0.1.0-alpha.3"
             },
-            "time": "2026-11-27T07:57:56+00:00",
-            "published-time": "2026-11-27T07:58:06+00:00"
+            "time": "2026-11-27T09:33:22+00:00",
+            "published-time": "2026-11-27T09:33:31+00:00"
         },
         {
             "name": "phpdocumentor/reflection-common",

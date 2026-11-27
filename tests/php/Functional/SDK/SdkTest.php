@@ -8,9 +8,9 @@ use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
-use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use Psr\Http\Message\RequestInterface;
 use Mollie\Api\Client;
 use Mollie\Api\Models\Components\Amount;
 use Mollie\Api\Models\Components\AmountNullable;
@@ -29,7 +29,6 @@ use Mollie\Api\Utils\Retry\RetryConfigBackoff;
 use Mollie\Api\Utils\Retry\RetryConfigNone;
 use Mollie\WooCommerce\SDK\Api;
 use Mollie\WooCommerce\SDK\ApiException;
-use Mollie\WooCommerce\SDK\IdempotencyKey;
 use Mollie\WooCommerce\SDK\MollieClient;
 use Mollie\WooCommerce\SDK\Resources\Normalizer;
 use Mollie\WooCommerce\SDK\Resources\Payment;
@@ -167,30 +166,6 @@ class SdkTest extends TestCase
     /**
      * @test
      */
-    public function idempotencyKeyRandomGeneratesValidUuidV4AndResolvePreservesExplicitKeys(): void
-    {
-        $first = IdempotencyKey::random();
-        $second = IdempotencyKey::random();
-
-        self::assertRegExp(
-            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
-            $first
-        );
-        self::assertNotSame($first, $second);
-        self::assertSame('explicit-key-123', IdempotencyKey::resolve('explicit-key-123'));
-        self::assertRegExp(
-            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
-            IdempotencyKey::resolve(null)
-        );
-        self::assertRegExp(
-            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
-            IdempotencyKey::resolve('')
-        );
-    }
-
-    /**
-     * @test
-     */
     public function wordPressHttpAdapterNotifiesObserverWithoutLeakingCredentials(): void
     {
         $events = [];
@@ -259,11 +234,11 @@ class SdkTest extends TestCase
         self::assertSame($testClient1, $testClient2);
         self::assertNotSame($testClient1, $liveClient);
 
-        $userAgent = $testClient1->sdk()->sdkConfiguration->userAgent;
-        self::assertStringContainsString('MollieWoo/9.0.0-dev', $userAgent);
-        self::assertStringContainsString('WooCommerce/9.5.0', $userAgent);
-        self::assertStringContainsString('WooCommerceSubscriptions/6.8.0', $userAgent);
-        self::assertStringContainsString('mollie/php', $userAgent);
+        $customUserAgent = (string) ($testClient1->sdk()->sdkConfiguration->globals['parameters']['header']['customUserAgent'] ?? '');
+        self::assertStringContainsString('MollieWoo/9.0.0-dev', $customUserAgent);
+        self::assertStringContainsString('WooCommerce/9.5.0', $customUserAgent);
+        self::assertStringContainsString('WooCommerceSubscriptions/6.8.0', $customUserAgent);
+        self::assertStringContainsString('mollie/php', $testClient1->sdk()->sdkConfiguration->userAgent);
         self::assertInstanceOf(RetryConfigBackoff::class, $testClient1->sdk()->sdkConfiguration->retryConfig);
 
         $rebuiltClient = $api->getApiClient($testKey, true);
@@ -303,7 +278,6 @@ class SdkTest extends TestCase
      */
     public function mutatingEndpointsAttachIdempotencyKeyAndShippingSessionsRetryOn503(): void
     {
-        $history = [];
         $mock = new MockHandler([
             new Response(
                 201,
@@ -348,13 +322,18 @@ class SdkTest extends TestCase
             ),
         ]);
 
-        $stack = HandlerStack::create($mock);
-        $stack->push(Middleware::history($history));
+        $sentRequests = [];
+        $recordingHandler = static function (RequestInterface $request, array $options) use ($mock, &$sentRequests) {
+            $sentRequests[] = $request;
+            return $mock($request, $options);
+        };
+        $stack = HandlerStack::create($recordingHandler);
         $guzzle = new GuzzleClient(['handler' => $stack, 'http_errors' => false]);
 
         $sdk = Client::builder()
             ->setClient($guzzle)
             ->setSecurity(new Security(apiKey: 'test_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'))
+            ->setCustomUserAgent('MollieWoo/9.0.0-dev')
             ->setRetryConfig(new RetryConfigBackoff(
                 initialIntervalMs: 1,
                 maxIntervalMs: 5,
@@ -363,7 +342,6 @@ class SdkTest extends TestCase
                 retryConnectionErrors: true
             ))
             ->build();
-        $sdk->sdkConfiguration->userAgent = 'MollieWoo/9.0.0-dev ' . $sdk->sdkConfiguration->userAgent;
 
         $client = new MollieClient($sdk);
 
@@ -374,8 +352,13 @@ class SdkTest extends TestCase
         ]);
 
         self::assertSame('tr_created123', $payment->id);
-        self::assertNotEmpty($history[0]['request']->getHeaderLine('idempotency-key'));
-        self::assertStringContainsString('MollieWoo/9.0.0-dev', $history[0]['request']->getHeaderLine('user-agent'));
+        self::assertRegExp(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+            $sentRequests[0]->getHeaderLine('idempotency-key')
+        );
+        self::assertFalse($sentRequests[0]->hasHeader('x-mollie-sdk-fallback-idempotency-key'));
+        self::assertSame(1, substr_count($sentRequests[0]->getHeaderLine('user-agent'), 'MollieWoo/9.0.0-dev'));
+        self::assertStringContainsString('mollie/php', $sentRequests[0]->getHeaderLine('user-agent'));
 
         $session = $client->sessions->create([
             'amount' => ['currency' => 'EUR', 'value' => '10.00'],
@@ -395,11 +378,11 @@ class SdkTest extends TestCase
 
         self::assertSame('sess_retry123', $session->id);
         self::assertSame('https://example.com/shipping', $session->shipping->callbackUrl);
-        self::assertCount(3, $history);
-        self::assertSame('sess-idem-key-1', $history[1]['request']->getHeaderLine('idempotency-key'));
-        self::assertSame('sess-idem-key-1', $history[2]['request']->getHeaderLine('idempotency-key'));
-        self::assertStringContainsString('MollieWoo/9.0.0-dev', $history[2]['request']->getHeaderLine('user-agent'));
-        $sentSessionPayload = json_decode((string) $history[2]['request']->getBody(), true);
+        self::assertCount(3, $sentRequests);
+        self::assertSame('sess-idem-key-1', $sentRequests[1]->getHeaderLine('idempotency-key'));
+        self::assertSame('sess-idem-key-1', $sentRequests[2]->getHeaderLine('idempotency-key'));
+        self::assertSame(1, substr_count($sentRequests[2]->getHeaderLine('user-agent'), 'MollieWoo/9.0.0-dev'));
+        $sentSessionPayload = json_decode((string) $sentRequests[2]->getBody(), true);
         self::assertSame('https://example.com/shipping', $sentSessionPayload['shipping']['callbackUrl'] ?? null);
         self::assertSame(['shipping-address'], $sentSessionPayload['requiredCustomerDetails'] ?? null);
     }
@@ -429,7 +412,7 @@ class SdkTest extends TestCase
      */
     public function paymentsEndpointSanitizesLocaleLegacyKlarnaArrayMethodsAndBillingEmail(): void
     {
-        $history = [];
+        $sentRequests = [];
         $paymentJson = static function (string $id): string {
             return json_encode([
                 'resource' => 'payment',
@@ -453,8 +436,11 @@ class SdkTest extends TestCase
             new Response(201, ['Content-Type' => 'application/hal+json'], $paymentJson('tr_edge2')),
         ]);
 
-        $stack = HandlerStack::create($mock);
-        $stack->push(Middleware::history($history));
+        $recordingHandler = static function (RequestInterface $request, array $options) use ($mock, &$sentRequests) {
+            $sentRequests[] = $request;
+            return $mock($request, $options);
+        };
+        $stack = HandlerStack::create($recordingHandler);
         $guzzle = new GuzzleClient(['handler' => $stack, 'http_errors' => false]);
 
         $sdk = Client::builder()
@@ -473,7 +459,7 @@ class SdkTest extends TestCase
             'billingEmail' => 'buyer@example.com',
         ]);
 
-        $firstBody = json_decode((string) $history[0]['request']->getBody(), true);
+        $firstBody = json_decode((string) $sentRequests[0]->getBody(), true);
         self::assertArrayNotHasKey('locale', $firstBody);
         self::assertSame('klarna', $firstBody['method']);
         self::assertSame('buyer@example.com', $firstBody['billingAddress']['email'] ?? null);
@@ -486,7 +472,7 @@ class SdkTest extends TestCase
             'method' => ['ideal', 'klarnasliceit'],
         ]);
 
-        $secondBody = json_decode((string) $history[1]['request']->getBody(), true);
+        $secondBody = json_decode((string) $sentRequests[1]->getBody(), true);
         self::assertSame(['ideal', 'klarna'], $secondBody['method']);
     }
 }

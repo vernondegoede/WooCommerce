@@ -9,7 +9,6 @@ use Mollie\Api\Models\Components\EntityCustomer;
 use Mollie\Api\Models\Components\LocaleResponse;
 use Mollie\Api\Models\Operations\GetCustomerRequest;
 use Mollie\WooCommerce\SDK\ApiException;
-use Mollie\WooCommerce\SDK\IdempotencyKey;
 use Mollie\WooCommerce\SDK\Resources\Customer;
 use Throwable;
 
@@ -63,7 +62,7 @@ class CustomersEndpoint
 
             $response = $this->sdk->customers->create(
                 body: $body,
-                idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                idempotencyKey: $idempotencyKey
             );
 
             if ($response->customerResponse === null) {

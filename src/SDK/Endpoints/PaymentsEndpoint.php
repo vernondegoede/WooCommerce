@@ -18,7 +18,6 @@ use Mollie\Api\Models\Operations\ReleaseAuthorizationRequest;
 use Mollie\Api\Models\Operations\UpdatePaymentRequest;
 use Mollie\Api\Models\Operations\UpdatePaymentRequestBody;
 use Mollie\WooCommerce\SDK\ApiException;
-use Mollie\WooCommerce\SDK\IdempotencyKey;
 use Mollie\WooCommerce\SDK\Resources\Normalizer;
 use Mollie\WooCommerce\SDK\Resources\Payment;
 use Mollie\WooCommerce\SDK\Resources\Refund;
@@ -54,7 +53,7 @@ class PaymentsEndpoint
 
             $response = $this->sdk->payments->create(
                 new CreatePaymentRequest(
-                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    idempotencyKey: $idempotencyKey,
                     body: $body,
                     include: $include
                 )
@@ -104,7 +103,7 @@ class PaymentsEndpoint
             $response = $this->sdk->payments->cancel(
                 new CancelPaymentRequest(
                     paymentId: $paymentId,
-                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                    idempotencyKey: $idempotencyKey
                 )
             );
 
@@ -138,7 +137,7 @@ class PaymentsEndpoint
             $response = $this->sdk->payments->update(
                 new UpdatePaymentRequest(
                     paymentId: $paymentId,
-                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    idempotencyKey: $idempotencyKey,
                     body: $body
                 )
             );
@@ -180,7 +179,7 @@ class PaymentsEndpoint
             $response = $this->sdk->refunds->create(
                 new CreateRefundRequest(
                     paymentId: $paymentId,
-                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey),
+                    idempotencyKey: $idempotencyKey,
                     body: $refundRequest
                 )
             );
@@ -204,7 +203,7 @@ class PaymentsEndpoint
             $this->sdk->payments->releaseAuthorization(
                 new ReleaseAuthorizationRequest(
                     paymentId: $paymentId,
-                    idempotencyKey: IdempotencyKey::resolve($idempotencyKey)
+                    idempotencyKey: $idempotencyKey
                 )
             );
         } catch (Throwable $throwable) {

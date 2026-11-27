@@ -94,17 +94,13 @@ class Api
                 }
                 : null;
 
-            $builder = Client::builder()
+            $sdk = Client::builder()
                 ->setClient(WordPressHttpAdapter::createGuzzleClient($observer))
                 ->setSecurity(new Security(apiKey: $apiKey))
                 ->setServerUrl($endpoint)
                 ->setCustomUserAgent($userAgent)
-                ->setRetryConfig($this->retryConfig());
-
-            $sdk = $builder->build();
-            // mollie/php emits SDKConfiguration::$userAgent as the User-Agent header
-            // and does not yet wire globals['parameters']['header']['customUserAgent'] into requests.
-            $sdk->sdkConfiguration->userAgent = trim($userAgent . ' ' . $sdk->sdkConfiguration->userAgent);
+                ->setRetryConfig($this->retryConfig())
+                ->build();
 
             $this->clients[$cacheKey] = new MollieClient($sdk);
         }
